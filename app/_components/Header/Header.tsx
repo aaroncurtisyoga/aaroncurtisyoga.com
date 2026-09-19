@@ -6,17 +6,12 @@ import MobileNavbarContent from "@/app/_components/Header/MobileNavbarContent";
 import Logo from "@/app/_components/Header/Logo";
 import UserDropdown from "@/app/_components/Header/UserDropdown";
 import { useUser } from "@clerk/nextjs";
+import { adminDashboardLinks } from "@/app/_lib/constants";
 
 const Header: FC = () => {
   const { user, isSignedIn, isLoaded } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Define admin links
-  const adminLinks = [
-    { href: "/admin", name: "Admin Dashboard", testId: "admin-dashboard-link" },
-  ];
-
-  // Check if user is admin
   const isAdmin = user?.publicMetadata?.role === "admin";
 
   return (
@@ -31,7 +26,7 @@ const Header: FC = () => {
         {/* Desktop navigation */}
         <DesktopNavbarContent>
           <UserDropdown
-            linksForLoggedInUsers={isAdmin ? adminLinks : []}
+            linksForLoggedInUsers={isAdmin ? adminDashboardLinks : []}
             isSignedIn={isSignedIn || false}
             isLoaded={isLoaded}
           />
@@ -39,7 +34,7 @@ const Header: FC = () => {
 
         {/* Mobile navigation */}
         <MobileNavbarContent
-          linksForLoggedInUsers={isAdmin ? adminLinks : []}
+          linksForLoggedInUsers={isAdmin ? adminDashboardLinks : []}
           isMenuOpen={isMenuOpen}
           setIsMenuOpen={setIsMenuOpen}
           isSignedIn={isSignedIn || false}

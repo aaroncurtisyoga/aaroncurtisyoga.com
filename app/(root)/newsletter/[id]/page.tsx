@@ -102,7 +102,8 @@ const NewsletterIssuePage = async ({ params }: NewsletterIssuePageProps) => {
         // Links escape via the injected <base target="_blank">; everything
         // else stays sandboxed.
         sandbox="allow-popups allow-popups-to-escape-sandbox"
-        className="mt-6 h-[75vh] w-full rounded-md border bg-[#ededeb]"
+        // Mirrors SAND, the email body ground in app/_lib/email/newsletter-template.ts.
+        className="mt-6 h-[75vh] w-full rounded-md border bg-sand"
       />
     </div>
   );

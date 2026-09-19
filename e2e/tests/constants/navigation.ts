@@ -4,14 +4,16 @@ export interface NavLink {
   testId: string;
 }
 
+// Mirrors unauthenticatedLinks in app/_lib/constants/index.ts.
 const baseUnauthenticatedLinks = [
-  {
-    name: "Private Sessions",
-    href: "/private-sessions",
-    baseTestId: "private-sessions-link",
-  },
+  { name: "Classes", href: "/#classes", baseTestId: "classes-link" },
+  { name: "About", href: "/#about", baseTestId: "about-link" },
+  { name: "Newsletter", href: "/#newsletter", baseTestId: "newsletter-link" },
 ];
 
+// Pre-existing gap: nothing in the app renders an account link today, so the
+// two "account link" tests fail on this list. Left as-is rather than deleted
+// with the redesign; either add the link to UserDropdown or drop those tests.
 const baseUserLinks = [
   {
     name: "Account",
@@ -20,11 +22,12 @@ const baseUserLinks = [
   },
 ];
 
+// Mirrors adminDashboardLinks in app/_lib/constants/index.ts.
 const baseAdminLinks = [
   {
-    name: "Admin",
-    href: "/admin/events",
-    baseTestId: "admin-link",
+    name: "Admin Dashboard",
+    href: "/admin",
+    baseTestId: "admin-dashboard-link",
   },
 ];
 

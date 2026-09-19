@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Home, Search } from "lucide-react";
+import { instructorEmailAddress } from "@/app/_lib/constants";
+import { CalendarDays, Home } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -40,8 +41,8 @@ export default function NotFound() {
             className="font-medium min-w-[140px] border-2"
             asChild
           >
-            <Link href="/">
-              <Search className="w-4 h-4" /> View Events
+            <Link href="/#classes">
+              <CalendarDays className="w-4 h-4" /> Upcoming classes
             </Link>
           </Button>
         </div>
@@ -51,7 +52,7 @@ export default function NotFound() {
           <p className="text-sm text-muted-foreground">
             Need help?{" "}
             <Link
-              href="mailto:info@acyyoga.com"
+              href={`mailto:${instructorEmailAddress}`}
               className="text-primary hover:underline font-medium"
             >
               Contact us

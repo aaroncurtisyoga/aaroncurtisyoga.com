@@ -3,7 +3,6 @@ import {
   Event as PrismaEvent,
   Category,
   EventUser,
-  User,
   Location as PrismaLocation,
 } from "@prisma/client";
 import Attendees from "@/app/(root)/events/[id]/_components/Attendees";
@@ -16,11 +15,12 @@ import Location from "@/app/(root)/events/[id]/_components/Location";
 import RefundPolicy from "@/app/(root)/events/[id]/_components/RefundPolicy";
 import Subheading from "@/app/(root)/events/[id]/_components/Subheadline";
 import { getEventByIdCached as getEventById } from "@/app/_lib/actions/event.queries";
+import type { AttendeeUser } from "@/app/_lib/types";
 import { handleError } from "@/app/_lib/utils";
 
 type Event = PrismaEvent & {
   category: Category;
-  attendees: (EventUser & { user: User })[];
+  attendees: (EventUser & { user: AttendeeUser })[];
   location: PrismaLocation;
 };
 

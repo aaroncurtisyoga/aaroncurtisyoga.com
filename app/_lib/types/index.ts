@@ -51,17 +51,6 @@ export type GetOrdersByUserParams = {
 };
 
 // ====== URL QUERY PARAMS
-export type UrlQueryParams = {
-  params: string;
-  key: string;
-  value: string | null;
-};
-
-export type RemoveUrlQueryParams = {
-  params: string;
-  keysToRemove: string[];
-};
-
 export type TravelMode = "driving" | "walking" | "transit" | "bicycling";
 
 export interface TravelOption {
@@ -83,8 +72,15 @@ export type EventWithLocationAndCategory = Event & {
 };
 
 // Full event detail (adds attendees), as returned by getEventById.
+/** The attendee fields the public event page renders. Deliberately not the
+ *  whole User row: that read is unauthenticated. */
+export type AttendeeUser = Pick<
+  User,
+  "id" | "firstName" | "lastName" | "photo"
+>;
+
 export type EventWithDetails = EventWithLocationAndCategory & {
-  attendees: (EventUser & { user: User })[];
+  attendees: (EventUser & { user: AttendeeUser })[];
 };
 
 export interface GetAllEventsResponse {

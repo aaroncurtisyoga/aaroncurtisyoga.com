@@ -12,7 +12,7 @@ import {
 } from "@/app/_lib/types";
 import { CreateEventData, UpdateEventData } from "@/app/_lib/types/event";
 import { handleError } from "@/app/_lib/utils";
-import { serialize } from "@/app/_lib/utils/serialize";
+import { serialize, type Serialized } from "@/app/_lib/utils/serialize";
 import {
   calculateSkipAmount,
   calculateTotalPages,
@@ -195,6 +195,11 @@ export async function getAllEvents({
   isActive = true,
 }: GetAllEventsParams): Promise<GetAllEventsResponse> {
   try {
+    // Public POST endpoint by virtue of "use server". Its callers are the admin
+    // events table and the newsletter insert dialog, and it takes an unclamped
+    // row limit plus an isActive filter, so it checks the caller itself.
+    await requireAdmin();
+
     // In dev mode with MOCK_EVENTS=true, return mock events for UI testing
     const useMockEvents =
       process.env.NODE_ENV === "development" &&
@@ -283,7 +288,17 @@ export async function getEventById(
       include: {
         attendees: {
           include: {
-            user: true,
+            // Only what Attendees.tsx renders. This read is public (the event
+            // page and getEventByIdCached), and `user: true` shipped every
+            // attendee's email and clerkId to the browser.
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                photo: true,
+              },
+            },
           },
         },
         category: true,
@@ -301,8 +316,8 @@ export async function getEventById(
 }
 
 /**
- * Aaron's own upcoming one-off events (sound baths, workshops) — excludes
- * externally synced studio classes, which already appear in the weekly schedule.
+ * Aaron's own upcoming one-off events (sound baths, workshops), excluding
+ * externally synced studio classes. Feeds the newsletter's Upcoming block.
  * `from` is the "upcoming as of when?" cutoff: the newsletter passes its
  * scheduled send time so a Friday-composed, Monday-sent email doesn't feature
  * events that will already be over.
@@ -314,7 +329,7 @@ export async function getFeaturedEvents(limit = 2, from: Date = new Date()) {
         isActive: true,
         startDateTime: { gte: from },
         // Show anything explicitly featured (incl. synced events) plus
-        // manually-created events, which default into the Upcoming band.
+        // manually-created events, which default into the Upcoming block.
         OR: [{ isFeatured: true }, { sourceType: null, isExternal: false }],
       },
       orderBy: { startDateTime: "asc" },
@@ -327,8 +342,8 @@ export async function getFeaturedEvents(limit = 2, from: Date = new Date()) {
 
     return serialize(events) as unknown as EventWithLocationAndCategory[];
   } catch (error) {
-    // Degrade gracefully: a failure here should hide the homepage Upcoming
-    // section, not crash the whole page (handleError rethrows).
+    // Degrade gracefully: a failure here should just omit the Upcoming
+    // block, not fail the whole send (handleError rethrows).
     console.error(
       "[getFeaturedEvents] Failed to fetch featured events:",
       error,
@@ -338,9 +353,9 @@ export async function getFeaturedEvents(limit = 2, from: Date = new Date()) {
 }
 
 /**
- * Feature/unfeature an event for the homepage Upcoming band. Works for synced
- * events too, since featuring is independent of source. Admin-only routes are
- * protected by proxy.ts.
+ * Feature/unfeature an event for the newsletter's Upcoming block. Works for
+ * synced events too, since featuring is independent of source. Admin-only
+ * routes are protected by proxy.ts.
  */
 export async function toggleEventFeatured(
   eventId: string,
@@ -352,13 +367,47 @@ export async function toggleEventFeatured(
       where: { id: eventId },
       data: { isFeatured },
     });
-    revalidatePath("/");
+    // Only the newsletter reads isFeatured, and it reads uncached, so there is
+    // nothing public to revalidate. Busting the events tag here would evict the
+    // homepage cache and wake Neon for no visible change.
     revalidatePath("/admin/events");
-    revalidateTag(EVENTS_CACHE_TAG, { expire: 0 });
     return { success: true };
   } catch (error) {
     return handleError(error);
   }
+}
+
+/**
+ * The next `limit` upcoming active events from any source, plus how many are
+ * still ahead in total, for the homepage hero card and Upcoming section.
+ *
+ * A failure here is thrown, not swallowed. The caller sits behind
+ * `unstable_cache`, which stores whatever the callback resolves to, so
+ * returning an empty list would pin "no classes" on the homepage for the full
+ * 15-minute TTL after a single Neon cold-start blip. A rejected promise is
+ * never cached, so the homepage degrades for one request and the next one
+ * retries. The page catches it.
+ */
+export async function getUpcomingEvents(
+  limit = 3,
+  from: Date = new Date(),
+): Promise<{
+  events: Serialized<EventWithLocationAndCategory>[];
+  total: number;
+}> {
+  const where = { isActive: true, startDateTime: { gte: from } };
+  const [events, total] = await Promise.all([
+    prisma.event.findMany({
+      where,
+      orderBy: { startDateTime: "asc" },
+      // Clamped: every export in this "use server" module is reachable by POST
+      // from any client, and the homepage only ever asks for 3.
+      take: Math.min(Math.max(limit, 1), 12),
+      include: { category: true, location: true },
+    }),
+    prisma.event.count({ where }),
+  ]);
+  return { events: serialize(events), total };
 }
 
 /**
@@ -569,6 +618,9 @@ export async function getEventsByMonth({
   isActive?: boolean;
 }): Promise<EventWithLocationAndCategory[]> {
   try {
+    // Admin calendar only, and reachable by POST like every other export here.
+    await requireAdmin();
+
     const { gridStart, gridEnd } = buildMonthGridRange(year, month);
 
     const conditions: Prisma.EventWhereInput[] = [
@@ -600,19 +652,5 @@ export async function getEventsByMonth({
   } catch (error) {
     handleError(error);
     return [];
-  }
-}
-
-export async function getLastActiveEventDate(): Promise<Date | null> {
-  try {
-    const event = await prisma.event.findFirst({
-      where: { isActive: true },
-      orderBy: { startDateTime: "desc" },
-      select: { startDateTime: true },
-    });
-    return event?.startDateTime ?? null;
-  } catch (error) {
-    handleError(error);
-    return null;
   }
 }

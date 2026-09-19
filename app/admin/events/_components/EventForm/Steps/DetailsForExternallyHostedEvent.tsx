@@ -37,8 +37,8 @@ const DetailsForExternallyHostedEvent: FC = () => {
         <div className="p-4 bg-muted rounded-lg">
           <p className="text-muted-foreground">
             Registration for this event happens on the external site you linked
-            in the previous step. You can still add a photo below — it&apos;s
-            used on the homepage and event cards.
+            in the previous step. You can still add a photo below; it&apos;s
+            used on the event page and in the newsletter.
           </p>
         </div>
         <ImagePicker errors={errors} setValue={setValue} control={control} />

@@ -13,7 +13,9 @@ test.describe("Desktop Header Navigation", () => {
   test.beforeEach(async ({ page }) => {
     await setupClerkTestingToken({ page });
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.goto("/");
+    // The homepage has its own nav; the shared Header renders on the other
+    // public pages.
+    await page.goto("/newsletter");
   });
 
   test("desktop menu is visible", async ({ page }) => {

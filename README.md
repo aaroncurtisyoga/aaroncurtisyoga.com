@@ -6,7 +6,7 @@ Booking, payments, and class scheduling for a DC yoga instructor. Live at **[aar
 
 I teach yoga in DC, and I built and run the site my students use. Solo build, in production on Vercel.
 
-- **Events and checkout.** Browse, search, and register. Stripe for paid events, with the order written server-side from the webhook.
+- **Events and checkout.** The next classes on the homepage, a page per event, and Stripe for paid ones, with the order written server-side from the webhook.
 - **Private sessions.** A four-step booking wizard for session packages, ending at Stripe Elements.
 - **Class sync.** Two partner studios publish schedules with no public API, so a nightly cron scrapes both and folds them into one calendar.
 - **Newsletter.** Composed, scheduled, and sent from the admin area through Resend, with a public archive of past issues.
@@ -38,9 +38,7 @@ Bright Bear Yoga (Momence) and DC Bouldering Project (ZoomShift) both list class
 - A crawl returning zero events counts as a failure, not an empty schedule. That's the difference between a studio outage and silently wiping a week off the site.
 - Writes dedupe twice: on `sourceId` in the payload, since a class can appear in two month views, and at the database via `@@unique([sourceType, sourceId])`.
 
-Scraped classes land on the public calendar next to anything I schedule myself:
-
-![Month view of the class calendar](docs/screenshots/schedule-month.png)
+Scraped classes land in the homepage's Upcoming section next to anything I schedule myself, and in the admin calendar.
 
 ### Orders are written by the Stripe webhook
 

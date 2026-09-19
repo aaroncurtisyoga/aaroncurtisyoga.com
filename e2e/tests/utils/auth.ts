@@ -49,7 +49,7 @@ export async function signInAs(page: Page, role: UserRole): Promise<void> {
   }
 
   // Reload the page with the new auth state
-  await page.goto("/");
+  await page.reload();
 }
 
 /**
@@ -63,5 +63,5 @@ export async function ensureSignedOut(page: Page): Promise<void> {
   }
 
   // Reload after sign out
-  await page.goto("/");
+  await page.reload();
 }

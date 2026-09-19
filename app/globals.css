@@ -223,6 +223,18 @@ img {
   --color-cta: #1a73e8; /* bright screen accent — CTAs, hovers, highlights (screen only; not for print) */
   --color-sky: #6ba3f5; /* light accent tint for text on dark surfaces (e.g. on navy) */
   --color-band: #eef1fa; /* pale section band */
+
+  /* Homepage palette (moss + sand) from the Sept 2026 redesign. Used only by
+     app/(home) today; the rest of the public site still runs the blue system. */
+  --color-sand: #ece6da; /* page background */
+  --color-sand-deep: #dfd7c6; /* cards and bands sitting on sand */
+  --color-moss: #3f4a35; /* accent: hero arch, Upcoming section, pill CTA */
+  --color-ink: #23281f; /* body text on sand */
+  --color-ink-muted: #55594d; /* secondary text */
+  --color-ink-label: #6b7360; /* uppercase labels, placeholders, footer */
+  --color-line: #c5bfae; /* hairlines on sand */
+  --spacing-gutter: clamp(20px, 5vw, 56px); /* homepage side padding */
+  --spacing-section: clamp(56px, 8vw, 96px); /* homepage section padding */
 }
 
 :root {

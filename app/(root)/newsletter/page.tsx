@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   // The root layout's title template appends "| Aaron Curtis Yoga".
   title: "The Newsletter",
   description:
-    "Past issues of the newsletter — one short email a month: what I'm teaching, where to find me, and one small thing to take onto the mat.",
+    "Past issues of the newsletter. One short email a month: what I'm teaching, where to find me, and one small thing to take onto the mat.",
 };
 
 const NewsletterArchivePage = async () => {

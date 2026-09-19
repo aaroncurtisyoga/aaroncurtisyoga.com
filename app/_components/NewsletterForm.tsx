@@ -1,49 +1,20 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/app/_lib/utils";
-import { addNewsletterEntry } from "@/app/_lib/actions/newsletter.actions";
-import { NewsletterFormSchema } from "@/app/_lib/schema";
-import { z } from "zod";
-
-type FormData = z.infer<typeof NewsletterFormSchema>;
+import { useNewsletterSignup } from "@/app/_hooks/useNewsletterSignup";
 
 const NewsletterForm = () => {
   const {
     register,
-    handleSubmit,
-    reset,
-    setError,
-    clearErrors,
+    onSubmit,
     formState: { errors, isSubmitting, isSubmitSuccessful },
-  } = useForm<FormData>({
-    resolver: zodResolver(NewsletterFormSchema),
-  });
-
-  const onSubmit = async (data: FormData) => {
-    clearErrors();
-    const result = await addNewsletterEntry(data);
-
-    if (result.formErrors || result.apiError) {
-      setError("email", {
-        type: "manual",
-        message: result.message || "Something went wrong",
-      });
-      return;
-    }
-
-    reset();
-    setTimeout(() => {
-      clearErrors();
-    }, 3000);
-  };
+  } = useNewsletterSignup();
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="w-full">
+    <form onSubmit={onSubmit} className="w-full">
       <div className="flex flex-wrap items-stretch gap-3">
         <div className="min-w-0 flex-1 basis-36">
           <label htmlFor="newsletter-first-name" className="sr-only">

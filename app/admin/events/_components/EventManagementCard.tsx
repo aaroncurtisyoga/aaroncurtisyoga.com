@@ -108,7 +108,9 @@ const EventManagementCard: FC<EventManagementCardProps> = ({
         <div className="flex items-center gap-1 pt-2 border-t border-border">
           <SimpleTooltip
             content={
-              event.isFeatured ? "Remove from Upcoming" : "Feature in Upcoming"
+              event.isFeatured
+                ? "Remove from the newsletter"
+                : "Feature in the newsletter"
             }
           >
             <Button
@@ -117,8 +119,8 @@ const EventManagementCard: FC<EventManagementCardProps> = ({
               className="h-8 w-8"
               aria-label={
                 event.isFeatured
-                  ? "Remove from Upcoming"
-                  : "Feature in Upcoming"
+                  ? "Remove from the newsletter"
+                  : "Feature in the newsletter"
               }
               aria-pressed={event.isFeatured}
               onClick={() => onToggleFeatured(event.id, !event.isFeatured)}

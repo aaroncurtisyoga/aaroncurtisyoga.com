@@ -10,6 +10,8 @@ module.exports = {
         sans: ["var(--font-barlow)", "sans-serif"],
         serif: ["var(--font-merriweather)", "serif"],
         display: ["var(--font-anton)", "Impact", "sans-serif"],
+        cormorant: ["var(--font-cormorant)", "Georgia", "serif"],
+        karla: ["var(--font-karla)", "Helvetica Neue", "sans-serif"],
       },
       screens: {
         md: "768px",

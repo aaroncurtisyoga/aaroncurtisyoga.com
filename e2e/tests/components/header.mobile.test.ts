@@ -17,7 +17,9 @@ test.describe("Mobile Header Navigation", () => {
   test.beforeEach(async ({ page }) => {
     await setupClerkTestingToken({ page });
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto("/");
+    // The homepage has its own nav; the shared Header renders on the other
+    // public pages.
+    await page.goto("/newsletter");
   });
 
   test("mobile menu is visible when toggled", async ({ page }) => {

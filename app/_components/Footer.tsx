@@ -1,29 +1,6 @@
 import Link from "next/link";
 import { track } from "@vercel/analytics";
-
-const socialLinks = [
-  {
-    name: "instagram",
-    href: "https://www.instagram.com/aaroncurtisyoga/",
-    testId: "footer-instagram-link",
-    ariaLabel: "Follow Aaron on Instagram",
-    trackAction: "instagram_click",
-  },
-  {
-    name: "youtube",
-    href: "https://www.youtube.com/channel/UCwwNWri2IhKxXKmQkCpj-uw",
-    testId: "footer-youtube-link",
-    ariaLabel: "Visit Aaron on YouTube",
-    trackAction: "youtube_click",
-  },
-  {
-    name: "spotify",
-    href: "https://open.spotify.com/user/31fmmphtelatfs7ra4tvboorm4qy?si=c32d094ea2c84e08",
-    testId: "footer-spotify-link",
-    ariaLabel: "See Aaron's playlists on Spotify",
-    trackAction: "spotify_click",
-  },
-];
+import { instructorEmailAddress, socialLinks } from "@/app/_lib/constants";
 
 const Footer = () => {
   return (
@@ -64,7 +41,7 @@ const Footer = () => {
               </Link>
             ))}
             <a
-              href="mailto:hi@aaroncurtisyoga.com"
+              href={`mailto:${instructorEmailAddress}`}
               data-testid="footer-email-link"
               aria-label="Email Aaron"
               className="text-[15px] font-medium lowercase text-white transition-colors hover:text-sky"

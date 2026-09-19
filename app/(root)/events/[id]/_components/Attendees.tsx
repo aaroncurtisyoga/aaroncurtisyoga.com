@@ -1,9 +1,9 @@
 import { FC } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { User } from "@prisma/client";
+import type { AttendeeUser } from "@/app/_lib/types";
 
 interface AttendeesProps {
-  attendees: User[];
+  attendees: AttendeeUser[];
 }
 
 const Attendees: FC<AttendeesProps> = ({ attendees }) => {

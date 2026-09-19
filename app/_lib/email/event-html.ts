@@ -5,7 +5,9 @@ import { formatDateTime, richTextToPlainText } from "@/app/_lib/utils";
 // composer's "Insert event" picker (client) — keep this module pure.
 
 export const NEWSLETTER_SITE_URL = "https://www.aaroncurtisyoga.com";
-export const CTA = "#1a73e8"; // bright screen accent — email CTA buttons (large fill)
+// Matches MOSS in app/_lib/email/newsletter-template.ts. White on moss is
+// 9.4:1, so the filled button clears AA comfortably.
+export const CTA = "#3f4a35";
 const DESCRIPTION_MAX_CHARS = 160;
 
 // Quotes too: escaped output also lands inside attribute values (alt="…").

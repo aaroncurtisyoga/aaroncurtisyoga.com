@@ -1,11 +1,11 @@
 {
   "name": "Aaron Curtis Yoga",
   "short_name": "AC Yoga",
-  "description": "Yoga Events & Education",
+  "description": "Yoga, movement & sound in Washington, DC.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0842a0",
+  "background_color": "#ece6da",
+  "theme_color": "#3f4a35",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
@@ -18,6 +18,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/apple-touch-icon.png",

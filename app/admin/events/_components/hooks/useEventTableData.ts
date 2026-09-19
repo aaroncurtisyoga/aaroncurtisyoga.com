@@ -110,7 +110,9 @@ export function useEventTableData(
     try {
       const response = await toggleEventFeatured(eventId, next);
       if (!response.success) throw new Error("Failed to update featured state");
-      toast.success(next ? "Added to Upcoming" : "Removed from Upcoming");
+      toast.success(
+        next ? "Added to the newsletter" : "Removed from the newsletter",
+      );
     } catch (error) {
       setEvents((prev) =>
         prev.map((event) =>

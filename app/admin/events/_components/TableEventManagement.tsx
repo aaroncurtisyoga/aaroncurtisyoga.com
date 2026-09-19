@@ -266,8 +266,8 @@ const TableEventManagement: FC = () => {
                         <SimpleTooltip
                           content={
                             event.isFeatured
-                              ? "Remove from Upcoming"
-                              : "Feature in Upcoming"
+                              ? "Remove from the newsletter"
+                              : "Feature in the newsletter"
                           }
                         >
                           <Button
@@ -276,8 +276,8 @@ const TableEventManagement: FC = () => {
                             className="h-8 w-8"
                             aria-label={
                               event.isFeatured
-                                ? "Remove from Upcoming"
-                                : "Feature in Upcoming"
+                                ? "Remove from the newsletter"
+                                : "Feature in the newsletter"
                             }
                             aria-pressed={event.isFeatured}
                             onClick={() =>

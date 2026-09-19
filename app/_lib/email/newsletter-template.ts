@@ -1,9 +1,13 @@
 const SITE_URL = "https://www.aaroncurtisyoga.com";
 const INSTAGRAM_URL = "https://www.instagram.com/aaroncurtisyoga/";
 const YOUTUBE_URL = "https://www.youtube.com/channel/UCwwNWri2IhKxXKmQkCpj-uw";
-const ROYAL = "#0842a0"; // deep anchor — email links & accents (text-weight, on white)
-const NAVY = "#131826";
-const INK = "#222222";
+// The email mirrors the homepage palette (see the token block in
+// app/globals.css). Keep these in step with it, and with NAVY in
+// scripts/generate-email-icons.ts, which draws the footer badges.
+const MOSS = "#3f4a35"; // accent: links, the masthead rule, CTA fills
+const INK = "#23281f"; // headings, the wordmark, rules
+const SAND = "#ece6da"; // ground behind the white letter
+const MUTED = "#67676f"; // fine print; 4.5:1 on SAND at 12px
 
 /**
  * Resend substitutes {{{contact.*}}} merge tags per-recipient only when a
@@ -228,7 +232,7 @@ export function renderNewsletterHtml({
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <style>
-  body { margin: 0; padding: 0; background-color: #ededeb; }
+  body { margin: 0; padding: 0; background-color: ${SAND}; }
   .content h1, .content h2, .content h3 {
     font-family: Helvetica, Arial, sans-serif;
     color: ${INK};
@@ -245,12 +249,12 @@ export function renderNewsletterHtml({
   .content ul, .content ol { margin: 0 0 16px; padding-left: 24px; }
   .content li { margin-bottom: 6px; }
   .content blockquote {
-    border-left: 4px solid ${ROYAL};
+    border-left: 4px solid ${MOSS};
     margin: 18px 0;
     padding: 4px 0 4px 16px;
     color: #52525b;
   }
-  .content a { color: ${ROYAL}; font-weight: 600; }
+  .content a { color: ${MOSS}; font-weight: 600; }
   .content img { max-width: 100%; height: auto; }
   .content hr { border: none; border-top: 2px solid ${INK}; margin: 26px 0; }
 </style>
@@ -261,7 +265,7 @@ ${
     ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${previewText}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>`
     : ""
 }
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ededeb;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${SAND};">
   <tr>
     <td align="center" style="padding: 24px 16px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
@@ -269,13 +273,13 @@ ${
   viewInBrowserUrl
     ? `        <tr>
           <td style="padding: 0 8px 8px; text-align: right; font-family: Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.4;">
-            <a href="${viewInBrowserUrl}" style="color:#71717a; text-decoration: underline;">View in browser</a>
+            <a href="${viewInBrowserUrl}" style="color:${MUTED}; text-decoration: underline;">View in browser</a>
           </td>
         </tr>`
     : ""
 }
         <tr>
-          <td style="background-color:#ffffff; border-top: 5px solid ${NAVY}; padding: 34px 36px 6px; text-align: center;">
+          <td style="background-color:#ffffff; border-top: 5px solid ${MOSS}; padding: 34px 36px 6px; text-align: center;">
             <a href="${SITE_URL}" style="font-family: Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; font-style: italic; letter-spacing: -0.01em; color: ${INK}; text-decoration: none;">
               aaron curtis yoga
             </a>
@@ -307,11 +311,11 @@ ${
           </td>
         </tr>
         <tr>
-          <td style="padding: 4px 8px 0; text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 12px; line-height: 2; color: #71717a;">
+          <td style="padding: 4px 8px 0; text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 12px; line-height: 2; color: ${MUTED};">
             You're receiving this email because you signed up at
-            <a href="${SITE_URL}" style="color:#71717a;">aaroncurtisyoga.com</a>.
+            <a href="${SITE_URL}" style="color:${MUTED};">aaroncurtisyoga.com</a>.
             <br>
-            <a href="${unsubscribeUrl}" style="color:#71717a;">Unsubscribe</a>
+            <a href="${unsubscribeUrl}" style="color:${MUTED};">Unsubscribe</a>
           </td>
         </tr>
       </table>

@@ -1,19 +1,33 @@
 /**
- * One-time recolor of the "AC" app icons from the retired cobalt #2749e0 to the
- * deep-royal brand anchor #0842a0 (see the "blue system" note in globals.css).
+ * Recolor the "AC" app icons into the homepage's moss + sand palette.
  *
  *   npx tsx scripts/recolor-app-icons.ts --verify <outDir>   # preview only
  *   npx tsx scripts/recolor-app-icons.ts --apply             # overwrite public/
  *
- * The icons are a bold white "AC" on a solid brand field, so we recolor rather
- * than redesign: a per-channel linear map f(x)=a*x+b that fixes white at white
- * and maps cobalt -> royal. This preserves the white glyph and every
- * anti-aliased edge exactly (no font, no vector source needed). Alpha rides
- * through with an identity coefficient so the rounded-corner mask is untouched.
+ * History: these icons started cobalt #2749e0, were remapped to the royal
+ * anchor #0842a0 when the blue system landed, and move to moss here. Each pass
+ * rewrites this file's FROM/TO constants rather than stacking scripts.
  *
- * favicon.ico isn't sharp-readable, so it's rebuilt from the 512 source as a
- * 16+32 PNG-in-ICO container (no extra dependency). When there's finally a real
- * vector logo, replace this recolor step with a proper generate-from-SVG script.
+ * The art is a flat field with a bold white "AC" on top, so we recolor rather
+ * than redesign: a per-channel affine map f(x) = a*x + b pinned at two anchors,
+ * the field color and the glyph color. Affine maps carry blends exactly, so
+ * every anti-aliased edge pixel lands on the matching blend of the new pair and
+ * the glyph keeps its shape without a font or vector source. Alpha rides
+ * through with an identity coefficient.
+ *
+ * Why moss field and sand glyph, rather than the inverse: at 16px a sand field
+ * disappears into a light browser tab strip, and an ink field disappears into a
+ * dark one. Moss holds its tile shape against both.
+ *
+ * favicon.ico is NOT built here. It needs an optical crop to stay readable at
+ * 16px, so it has its own script: run `npx tsx scripts/generate-favicon.ts`
+ * after this one. When there's finally a real vector logo, replace this recolor
+ * step with a proper generate-from-SVG script.
+ *
+ * Rounding note: an affine map can't land both anchors exactly at integer
+ * precision. This pass stored the field as rgb(62,74,53), one below nominal
+ * moss #3f4a35, exactly as the royal pass stored rgb(7,66,160). A future pass
+ * should pin FROM_FIELD to the measured value again, not to the token.
  */
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -27,10 +41,22 @@ if (!APPLY && !OUT) {
   throw new Error("pass --apply or --verify <outDir>");
 }
 
-const COBALT = [39, 73, 224]; // #2749e0
-const ROYAL = [8, 66, 160]; //  #0842a0
-const a = COBALT.map((c, i) => (255 - ROYAL[i]) / (255 - c));
-const b = a.map((ai) => 255 - 255 * ai);
+/**
+ * Source anchors, measured from the shipped PNGs rather than assumed: the
+ * royal remap left the field one unit off nominal #0842a0, and pinning the map
+ * to the real value is what makes the new field land exactly on moss.
+ */
+const FROM_FIELD = [7, 66, 160]; //   royal, as actually stored
+const FROM_GLYPH = [255, 255, 255]; // white "AC"
+
+const TO_FIELD = [0x3f, 0x4a, 0x35]; // moss  #3f4a35
+const TO_GLYPH = [0xec, 0xe6, 0xda]; // sand  #ece6da
+
+// Solve a, b per channel from the two anchors.
+const a = TO_FIELD.map(
+  (to, i) => (to - TO_GLYPH[i]) / (FROM_FIELD[i] - FROM_GLYPH[i]),
+);
+const b = a.map((ai, i) => TO_GLYPH[i] - FROM_GLYPH[i] * ai);
 const A = [...a, 1]; // RGBA — alpha identity
 const B = [...b, 0];
 
@@ -55,55 +81,37 @@ async function sample(buf: Buffer, points: Array<[number, number]>) {
   });
 }
 
-// Minimal PNG-in-ICO container builder.
-function buildIco(entries: Array<{ size: number; png: Buffer }>) {
-  const header = Buffer.alloc(6);
-  header.writeUInt16LE(1, 2); // type: icon
-  header.writeUInt16LE(entries.length, 4);
-  const dir = Buffer.alloc(16 * entries.length);
-  let offset = 6 + 16 * entries.length;
-  entries.forEach((e, i) => {
-    const o = i * 16;
-    dir.writeUInt8(e.size >= 256 ? 0 : e.size, o);
-    dir.writeUInt8(e.size >= 256 ? 0 : e.size, o + 1);
-    dir.writeUInt16LE(1, o + 4); // planes
-    dir.writeUInt16LE(32, o + 6); // bpp
-    dir.writeUInt32LE(e.png.length, o + 8);
-    dir.writeUInt32LE(offset, o + 12);
-    offset += e.png.length;
-  });
-  return Buffer.concat([header, dir, ...entries.map((e) => e.png)]);
-}
-
 async function main() {
   if (OUT) await mkdir(OUT, { recursive: true });
   console.log("linear A(RGBA):", A.map((n) => n.toFixed(4)).join(", "));
   console.log("linear B(RGBA):", B.map((n) => n.toFixed(2)).join(", "));
 
-  // Idempotency guard: the map assumes a COBALT source. Running it against
-  // already-royal icons would double-apply it (red+blue clamp to 0 → green), so
-  // refuse if the 512's background isn't cobalt.
+  // Idempotency guard: the map assumes a FROM_FIELD source. Running it against
+  // already-moss icons would push the field somewhere meaningless, so refuse
+  // unless the 512's background still matches.
   const g = await sharp(path.join(ROOT, "public/icons/icon-512x512.png"))
     .raw()
     .toBuffer({ resolveWithObject: true });
   const gi = (256 * g.info.width + 20) * g.info.channels; // left-edge background
   const [gr, gg, gb] = [g.data[gi], g.data[gi + 1], g.data[gi + 2]];
-  if (Math.hypot(gr - 39, gg - 73, gb - 224) > 30) {
+  if (
+    Math.hypot(gr - FROM_FIELD[0], gg - FROM_FIELD[1], gb - FROM_FIELD[2]) > 30
+  ) {
     throw new Error(
-      `icon-512 background is rgb(${gr},${gg},${gb}), not cobalt #2749e0 — ` +
-        `icons look already recolored. Refusing to double-remap.`,
+      `icon-512 background is rgb(${gr},${gg},${gb}), not the expected ` +
+        `rgb(${FROM_FIELD.join(",")}); icons look already recolored. ` +
+        `Refusing to double-remap.`,
     );
   }
 
-  let icon512Png: Buffer | null = null; // reused for the favicon (never re-read)
   for (const rel of PNGS) {
     const buf = await remap(path.join(ROOT, rel)).png().toBuffer();
     const meta = await sharp(buf).metadata();
     if (rel.endsWith("icon-512x512.png")) {
-      icon512Png = buf;
       const pts = await sample(buf, [
-        [20, 256], // left edge — background (expect royal)
-        [256, 40], // top edge — background (expect royal)
+        [20, 256], // left edge, background (expect moss)
+        [256, 40], // top edge, background (expect moss)
+        [200, 300], // inside the A stroke (expect sand)
       ]);
       console.log("   512 samples:", pts.join("  "));
     }
@@ -116,22 +124,8 @@ async function main() {
     );
   }
 
-  // Build the favicon from the already-remapped 512 BUFFER — never re-read the
-  // file. In --apply the file has just been overwritten with royal, so
-  // remapping it again would double-apply the map and turn the icon green.
-  const faviconSrc = sharp(icon512Png!);
-  const png32 = await faviconSrc.clone().resize(32, 32).png().toBuffer();
-  const png16 = await faviconSrc.clone().resize(16, 16).png().toBuffer();
-  const ico = buildIco([
-    { size: 16, png: png16 },
-    { size: 32, png: png32 },
-  ]);
-  const icoDest = APPLY
-    ? path.join(ROOT, "public/favicon.ico")
-    : path.join(OUT!, "public__favicon.ico");
-  await writeFile(icoDest, ico);
   console.log(
-    `   ${APPLY ? "wrote" : "preview"} public/favicon.ico (${ico.length} bytes)`,
+    "   next: npx tsx scripts/generate-favicon.ts to rebuild public/favicon.ico",
   );
 }
 

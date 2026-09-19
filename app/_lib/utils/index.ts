@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { RemoveUrlQueryParams, UrlQueryParams } from "@/app/_lib/types";
+import type { Event } from "@prisma/client";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -23,6 +23,7 @@ export const formatDateTime = (dateInput: Date | string) => {
       dateTime: "Invalid Date",
       dateOnly: "Invalid Date",
       dateOnlyWithoutYear: "Invalid Date",
+      dateShortWithoutYear: "Invalid Date",
       dateLongWithoutYear: "Invalid Date",
       timeOnly: "Invalid Time",
       monthYear: "Invalid Date",
@@ -55,6 +56,14 @@ export const formatDateTime = (dateInput: Date | string) => {
   const dateOptionsWithoutYear: Intl.DateTimeFormatOptions = {
     weekday: "short",
     month: "long",
+    day: "numeric",
+    timeZone: "America/New_York",
+  };
+
+  // "Sat, Sep 27"
+  const dateOptionsShortWithoutYear: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
     day: "numeric",
     timeZone: "America/New_York",
   };
@@ -93,6 +102,10 @@ export const formatDateTime = (dateInput: Date | string) => {
     "en-US",
     dateOptionsWithoutYear,
   );
+
+  const formattedDateShortWithoutYear: string = new Date(
+    dateString,
+  ).toLocaleString("en-US", dateOptionsShortWithoutYear);
 
   const formattedDateLongWithoutYear: string = new Date(
     dateString,
@@ -145,6 +158,7 @@ export const formatDateTime = (dateInput: Date | string) => {
     dateTime: formattedDateTime,
     dateOnly: formattedDate,
     dateOnlyWithoutYear: formattedDateWithoutYear,
+    dateShortWithoutYear: formattedDateShortWithoutYear,
     dateLongWithoutYear: formattedDateLongWithoutYear,
     timeOnly: formattedTime,
     monthYear: formattedMonthYear,
@@ -157,6 +171,31 @@ export const formatDateTime = (dateInput: Date | string) => {
   };
 };
 
+type BookableEvent = Pick<
+  Event,
+  | "id"
+  | "isHostedExternally"
+  | "isExternal"
+  | "externalRegistrationUrl"
+  | "externalUrl"
+>;
+
+/**
+ * Where a class card should send the visitor. Synced events (Momence/DCBP)
+ * carry their booking link in externalUrl and manually entered external
+ * events in externalRegistrationUrl; go straight to whichever real booking
+ * page exists, else the on-site event page.
+ */
+export function getEventBookingLink(event: BookableEvent) {
+  const bookingUrl = event.externalRegistrationUrl || event.externalUrl;
+  const external =
+    (event.isHostedExternally || event.isExternal) && Boolean(bookingUrl);
+  return {
+    href: external && bookingUrl ? bookingUrl : `/events/${event.id}`,
+    external,
+  };
+}
+
 export const formatPrice = (price: string) => {
   const amount = parseFloat(price);
   const formattedPrice = new Intl.NumberFormat("en-US", {
@@ -166,33 +205,6 @@ export const formatPrice = (price: string) => {
 
   return formattedPrice;
 };
-
-export function formUrlQuery({ params, key, value }: UrlQueryParams) {
-  const searchParams = new URLSearchParams(params);
-
-  if (value === null) {
-    searchParams.delete(key);
-  } else {
-    searchParams.set(key, value);
-  }
-
-  const qs = searchParams.toString();
-  return `${window.location.pathname}${qs ? `?${qs}` : ""}`;
-}
-
-export function removeKeysFromQuery({
-  params,
-  keysToRemove,
-}: RemoveUrlQueryParams) {
-  const searchParams = new URLSearchParams(params);
-
-  keysToRemove.forEach((key) => {
-    searchParams.delete(key);
-  });
-
-  const qs = searchParams.toString();
-  return `${window.location.pathname}${qs ? `?${qs}` : ""}`;
-}
 
 // Always throws — annotated `never` so callers don't need an unreachable
 // return after it, and so the "server actions surface errors by throwing"
