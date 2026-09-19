@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import handstand from "@/public/assets/images/handstand_cutout.png";
-import { formatDateTime } from "@/app/_lib/utils";
+import { formatDateTime, getEventBookingLink } from "@/app/_lib/utils";
 import type { HomepageClass } from "../_lib/types";
 import { daysUntilInET, describeDaysUntil } from "../_lib/next-class";
 
@@ -55,6 +55,11 @@ function NextClassCard({ event, now }: { event: HomepageClass; now: Date }) {
     event.startDateTime,
   );
   const when = describeDaysUntil(daysUntilInET(event.startDateTime, now));
+  // Same destination the class cards use: the studio's booking page for a
+  // synced class, the event page for one sold here. The card already names a
+  // specific class, so the button books that class rather than scrolling to
+  // a list the visitor has to search.
+  const { href, external } = getEventBookingLink(event);
 
   return (
     <div
@@ -71,7 +76,8 @@ function NextClassCard({ event, now }: { event: HomepageClass; now: Date }) {
         </p>
       </div>
       <Link
-        href="#classes"
+        href={href}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
         className="whitespace-nowrap rounded-full bg-moss px-6 py-3.5 font-medium text-sand transition-opacity hover:opacity-70"
       >
         Save a spot
