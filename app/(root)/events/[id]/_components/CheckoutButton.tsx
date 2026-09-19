@@ -3,10 +3,11 @@
 import { FC, FormEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Event, OrderType } from "@prisma/client";
-import { loadStripe } from "@stripe/stripe-js";
 import { checkoutOrder } from "@/app/_lib/actions/order.actions";
 
-loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// No Stripe.js here on purpose. checkoutOrder redirects to Stripe's hosted
+// checkout, so the browser SDK is never used. A module-scope loadStripe() used
+// to sit here and pulled js.stripe.com onto every public event page.
 
 type CheckoutProps = { event: Event; userId: string };
 

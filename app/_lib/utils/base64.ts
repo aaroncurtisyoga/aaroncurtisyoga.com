@@ -1,7 +1,16 @@
 import sharp from "sharp";
-import { handleError } from "@/app/_lib/utils/index";
 
+/**
+ * A tiny blurred placeholder for next/image, or "" when one can't be made.
+ *
+ * Always degrades rather than throwing: this runs during the render of a public
+ * page, and a missing placeholder is not worth a 500. Synced classes carry no
+ * imageUrl at all, which used to reach `fetch("")` and take the whole event
+ * page down.
+ */
 export async function getBase64(imageUrl: string) {
+  if (!imageUrl) return "";
+
   try {
     const res = await fetch(imageUrl);
     if (!res.ok) {
@@ -18,7 +27,7 @@ export async function getBase64(imageUrl: string) {
     const base64 = `data:image/png;base64,${resizedBuffer.toString("base64")}`;
     return base64;
   } catch (error) {
-    handleError(error);
+    console.error("[getBase64] Could not build a placeholder:", error);
     return "";
   }
 }
