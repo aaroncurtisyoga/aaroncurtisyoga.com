@@ -24,6 +24,11 @@ npm run build            # Production build
 npm run check            # eslint + tsc --noEmit, run before committing
 npm run validate         # check + build
 npm run test:e2e         # Playwright (:ui and :debug variants exist)
+#   The 8 header tests need the UNPREFIXED CLERK_PUBLISHABLE_KEY in .env.local.
+#   Without it e2e/global.setup.ts skips clerkSetup() and every one of them
+#   throws "Clerk Frontend API URL is required" in beforeEach. That is an env
+#   gap, not a regression. Two of the eight also assert an account link that
+#   nothing in the app renders; see the note in e2e/tests/constants/navigation.ts.
 npx prisma studio        # DB GUI, see the .env note below
 npx prisma generate      # Regenerate client
 ```
@@ -57,7 +62,9 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 - Import from `@/components/ui/*` (button, card, dialog, table, input, etc.)
 - Two-blue system in `app/globals.css`: deep royal anchor `#0842a0` (`--primary`/`--ring`) for brand, print/apparel, headings, and text and links on white; bright screen accent `#1a73e8` (`--color-cta`, exposed as `bg-cta`/`text-cta`) for primary CTAs, hovers, and highlights only. Use the `accent` Button variant for conversion CTAs; most buttons stay the deep `default`. `--color-sky` #6ba3f5 is the light accent tint for text on dark (navy) surfaces. Keep bright `#1a73e8` off physical and print output
 - Two more tokens in the same `@theme inline` block: `--color-navy` #131826 (ink and dark surfaces) and `--color-band` #eef1fa (pale section band), exposed as `bg-navy` / `bg-band`
-- Fonts loaded in `app/layout.tsx` via `next/font/google` and mapped in `tailwind.config.js`: Barlow to `font-sans`, Merriweather to `font-serif`, Anton to `font-display`
+- **Brand color pipeline.** The tokens in `globals.css` are not the only copy. Changing a brand color means touching, in order: (1) the `@theme inline` tokens; (2) `app/(home)/layout.tsx`, which repeats sand in `viewport.themeColor` and in an inline `html,body` style; (3) `public/manifest.webmanifest` (`theme_color`, `background_color`); (4) `app/_lib/email/newsletter-template.ts`, whose MOSS/INK/SAND/MUTED constants email cannot read from CSS; (5) `app/_lib/email/event-html.ts` (`CTA`); (6) the three asset generators under `scripts/`, which bake color into checked-in PNGs. Grep the hex before assuming one edit is enough
+- Fonts loaded in `app/layout.tsx` via `next/font/google` and mapped in `tailwind.config.js`: Barlow to `font-sans`, Merriweather to `font-serif`, Anton to `font-display`, plus Cormorant Garamond to `font-cormorant` and Karla to `font-karla` for the homepage
+- **Homepage palette (Sept 2026 redesign)**: the homepage in `app/(home)` uses a moss + sand system, not the blues. Tokens in the same `@theme inline` block: `sand` #ece6da (page), `sand-deep` #dfd7c6 (cards), `moss` #3f4a35 (accent), `ink` #23281f, `ink-muted` #55594d, `ink-label` #6b7360, `line` #c5bfae, plus `--spacing-gutter` / `--spacing-section` for its fluid padding (`px-gutter`, `py-section`). Every other public page still uses the blue system; restyling the shared Header/Footer and inner pages to match is a follow-up, not done
 - The public site is pinned light. `app/providers.tsx` sets `forcedTheme="light"`, so `dark:` variants on public components are dead code
 
 ### Newsletter (Resend)
@@ -72,7 +79,7 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 - Two external sources: **Bright Bear Yoga** (Momence platform) + **DC Bouldering Project** (ZoomShift)
 - Scraped via Playwright on Browserless.io cloud (needs `BROWSERLESS_API_TOKEN` in ALL envs)
 - Duplicate prevention: `@@unique([sourceType, sourceId])` constraint, plus a dedupe on `sourceId` in the crawler payload
-- Retries fire only on Browserless rate-limit errors: `maxAttempts: 3`, `baseDelay: 5000`, so 5s then 10s. Anything else throws on the first try
+- Retries fire only on Browserless rate-limit **and WebSocket connection** errors, both matched by `isBrowserlessRateLimit` in `app/_lib/utils/retry-helper.ts`: `maxAttempts: 3`, `baseDelay: 5000`, so 5s then 10s. Anything else throws on the first try
 - Events are deactivated when they stop appearing externally, with two guards: a crawl returning zero events skips deactivation entirely, and the Google Calendar entry must delete successfully first
 - Google Calendar sync happens automatically during event CRUD (non-blocking)
 
@@ -93,25 +100,44 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 
 - **Admin auth**: server actions call `requireAdmin()` from `app/_lib/auth.ts`; API route handlers call `assertAdminRequest()` (cron routes call `assertCronRequest()`) from `app/_lib/api-auth.ts`. Both standardize on `sessionClaims.metadata.role` to match `proxy.ts`. Don't re-inline `currentUser()` role checks.
 - **Server-action error contract**: mutations surface failures by throwing. The catch does `return handleError(error)` (typed `never`), and the client wraps the call in try/catch. Read helpers may instead `console.error` and return an empty default for graceful degradation (see `getFeaturedEvents`).
-- **Reads vs writes**: server actions live in `*.actions.ts`. `*.queries.ts` holds `unstable_cache`-wrapped versions of public and hot reads (named `*Cached`) so public and crawler traffic doesn't keep the Neon DB awake. See `event.queries.ts`, `newsletter.queries.ts`. Bust the matching tag from `app/_lib/constants/cache-tags.ts` on mutation.
+- **Reads vs writes**: server actions live in `*.actions.ts`. `*.queries.ts` holds `unstable_cache`-wrapped versions of public and hot reads (named `*Cached`) so public and crawler traffic doesn't keep the Neon DB awake. See `event.queries.ts`, `newsletter.queries.ts`. Bust the matching tag from `app/_lib/constants/cache-tags.ts` on mutation. The homepage awaits `connection()` so it renders per request (its "today / in N days" label needs the real clock) while its data still comes from the cache. Note that Next 16 documents `unstable_cache` as replaced by `use cache`; the existing wrappers still use it because `cacheComponents` is off, so match the existing pattern rather than mixing the two.
 - **Serialize at the server to client boundary**: return `serialize()` (`app/_lib/utils/serialize.ts`) for any Prisma object crossing into a client component; it returns a `Serialized<T>` where Dates become ISO strings.
 - **Hooks**: cross-feature hooks live in `app/_hooks`; feature-local hooks colocate with their feature (e.g. `app/admin/events/_components/hooks`).
-- **New sync source**: add a `SOURCE_TYPES` member (`app/_lib/constants`), a crawler in `crawlers/`, a `*-sync-service.ts` (clone an existing one), then wire it into `event-sync-service.ts`, the sync-status route, and the `admin/sync` dashboard.
-- **New admin CRUD resource**: `app/admin/categories` is the reference pattern for a simple single-resource CRUD (page + `_components` + `*.actions.ts` + Zod schema in `schema.ts` + a nav entry in `adminNavLinks`).
+- **New sync source**: add a `SOURCE_TYPES` member (`app/_lib/constants`), a crawler in `crawlers/`, a `*-sync-service.ts` (clone an existing one), then wire it into `event-sync-service.ts`, the sync-status route, and the `admin/sync` dashboard. Two more that are easy to miss: a location getter in `location-category-service.ts`, and the source label in `app/(root)/events/[id]/_components/Checkout.tsx`, which currently hardcodes Bright Bear for every synced event.
+- **Dormant routes**: `app/_lib/dormant.ts` lists paths that answer 404 in production because the feature is parked. `proxy.ts` enforces it for everything its `matcher` covers; `/api/webhooks/stripe` checks the list itself because the matcher skips webhooks. Off today: `/api/create-payment-intent`, `/api/upload-blob`, `/api/webhooks/stripe`, `/private-sessions`. Delete a line to bring one back, and re-read the handler first.
+- **Server actions are public endpoints**: every export from a `"use server"` module is a POST any client can call with a forged payload. Each one enforces its own authorization; never rely on the caller. Reads that return other people's data call `requireAdmin()`, and anything scoped to "me" derives the id from the session rather than taking it as an argument (see `getOrdersByUser`). Internal helpers that shouldn't be callable at all live outside the actions files, like `createOrder` in `app/_lib/services/order-database-operations.ts`.
+- **New admin CRUD resource**: `app/admin/categories` is the reference pattern for a simple single-resource CRUD (page + `_components` + `*.actions.ts` + Zod schema in `schema.ts` + a nav entry in `adminNavLinks`). The create form is inline on `page.tsx`; there is no separate `create/` route.
+
+## Writing style
+
+Applies to UI copy, comments, commit messages and docs in this repo.
+
+- No em dashes. Use a comma, colon, period, or restructure
+- No "not just X, it's Y" and no "not only... but also"
+- US spelling: color, gray, organize, canceled
+- Contractions are fine and preferred
+
+Existing strings that break these rules are legacy, not the house style. Don't copy them.
 
 ## Project Structure
 
 ```
 app/
 ├── (auth)/                    # Sign-in/sign-up pages (Clerk)
+├── (home)/                    # Homepage, with its own nav + footer (moss/sand redesign)
+│   ├── _components/           # Section components, plus HomeNavAccount (admin entry via
+│   │                          # UserDropdown) and HomeNewsletterForm (email-only signup)
+│   ├── _lib/                  # next-class date helpers + the HomepageClass type
+│   ├── layout.tsx             # paints <html> sand, sets the page themeColor
+│   └── page.tsx
 ├── _components/               # App-wide shared: Header/, Footer, NewsletterForm, GoogleMap, Tiptap/
-├── (root)/                    # Public-facing pages
-│   ├── _components/           # Public page sections (EventCard, HomeHero, weekly schedule)
+├── (root)/                    # Every other public page, wrapped by the shared Header/Footer
+│   ├── _components/           # Only three live files: EventCard + EventCard/EventCardContent
+│   │                          # (admin submit preview) and NewsletterBand (/newsletter)
 │   ├── events/                # Event detail pages
 │   ├── newsletter/            # Public sent-issue archive
-│   ├── private-sessions/      # Multi-step booking wizard
-│   ├── account/               # User account
-│   └── page.tsx               # Home page
+│   ├── private-sessions/      # Multi-step booking wizard, dormant (404s)
+│   └── account/               # User account
 ├── admin/                     # Admin dashboard (RBAC protected)
 │   ├── events/                # Event CRUD with EventForm, plus orders
 │   ├── newsletter/            # Composer, subscribers, per-issue stats
@@ -119,11 +145,11 @@ app/
 │   ├── categories/            # Category management
 │   └── sync/                  # Sync status dashboard
 ├── api/
-│   ├── webhooks/{clerk,stripe,resend} # Webhook handlers
+│   ├── webhooks/{clerk,stripe,resend} # Webhook handlers (stripe is dormant)
 │   ├── cron/sync-events/       # Daily cron (8 AM UTC, 180s)
 │   ├── admin/sync/             # Manual sync endpoints
-│   ├── create-payment-intent/  # Stripe
-│   └── upload-blob/, upload-image/
+│   ├── create-payment-intent/  # Stripe, dormant (see app/_lib/dormant.ts)
+│   └── upload-image/ (live), upload-blob/ (dormant, no callers)
 ├── _lib/
 │   ├── actions/               # Server actions (*.actions.ts) + cached reads (*.queries.ts)
 │   ├── auth.ts / api-auth.ts  # requireAdmin() + assertAdminRequest()/assertCronRequest()
@@ -135,12 +161,15 @@ app/
 │   ├── google-calendar.ts     # Google Calendar service account API
 │   └── schema.ts              # Zod form schemas
 ├── _hooks/                    # useDisclosure, useNewsletterAutosave, useUnsavedChangesGuard,
-│                              # useAutocompleteSuggestions
+│                              # useAutocompleteSuggestions, useNewsletterSignup
 ├── providers.tsx              # All context providers (theme forced light)
 └── globals.css
 e2e/                           # Playwright specs, global.setup.ts, @clerk/testing auth
 prisma/                        # schema.prisma + migrations
-scripts/                       # import-subscribers, recolor-app-icons, version.sh
+scripts/                       # import-subscribers, version.sh, plus three asset generators run
+                               # by hand: recolor-app-icons, generate-favicon, generate-og-image.
+                               # generate-og-image bakes the hero headline into a checked-in PNG,
+                               # so changing that copy means re-running it
 ```
 
 ## Database Schema
@@ -149,7 +178,7 @@ scripts/                       # import-subscribers, recolor-app-icons, version.
 
 Site (9):
 
-- **Event**: title, dates, price, isFree, isFeatured, isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
+- **Event**: title, dates, price, isFree, isFeatured (newsletter-only since the Sept 2026 homepage redesign), isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
 - **User**: clerkId (unique), email, firstName, lastName, photo
 - **Order**: stripeId, totalAmount, type (EVENT/PRIVATE_SESSION), buyer to User, event to Event
 - **EventUser**: join table (userId + eventId composite PK)
@@ -159,7 +188,7 @@ Site (9):
 - **NewsletterEmailEvent**: dedup ledger for Resend webhook events; one row per (newsletter, emailId, type, link)
 - **Book**: reserved for a future reading-list feature; not wired to anything yet
 
-Training tracker (6, single-user so no `userId` on any of them):
+Training tracker (6, single-user so no `userId` on any of them). **Nothing in this codebase reads them.** The tracker moved to its own repo and database in `dbaf72e`; these tables are left in the schema only because dropping them needs a migration:
 
 - **Movement**: canonical movement library; name (unique), category, unitType, defaultUnit
 - **PlannedSession**: a day's prescription; world (HYROX/CROSSFIT), source (AUTHORED/PUSHPRESS/MANUAL), `blocks` Json, unique sourceId
@@ -174,24 +203,29 @@ Key constraint: `@@unique([sourceType, sourceId])` on Event prevents duplicate s
 
 ## Key Files
 
-| File                                             | Purpose                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------- |
-| `app/_lib/prisma.ts`                             | Prisma client singleton (default export)                      |
-| `app/_lib/auth.ts`                               | `requireAdmin()` guard for server actions                     |
-| `app/_lib/api-auth.ts`                           | `assertAdminRequest()` / `assertCronRequest()` for API routes |
-| `proxy.ts`                                       | Clerk middleware, route protection + admin RBAC               |
-| `app/_lib/actions/event.actions.ts`              | Event CRUD server actions                                     |
-| `app/_lib/crawlers/`                             | Web scrapers for Bright Bear + DCBP                           |
-| `app/_lib/services/event-sync-service.ts`        | Orchestrates sync pipeline                                    |
-| `app/_lib/services/event-database-operations.ts` | Event upsert/deactivate + Calendar reconciliation             |
-| `app/_lib/utils/index.ts`                        | formatDateTime (ET), handleError, URL query helpers           |
-| `app/_lib/utils/serialize.ts`                    | Prisma to plain object serializer                             |
-| `app/_lib/constants/index.ts`                    | SOURCE_TYPES, adminNavLinks, table column defs                |
-| `app/_lib/google-calendar.ts`                    | Google Calendar API (service account)                         |
-| `app/_lib/schema.ts`                             | Zod validation schemas for forms                              |
-| `app/admin/events/_components/EventForm/`        | Event creation/edit form                                      |
-| `app/(root)/private-sessions/`                   | Multi-step private session booking wizard                     |
-| `vercel.json`                                    | Cron schedules + function timeouts                            |
+| File                                             | Purpose                                                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `app/_lib/prisma.ts`                             | Prisma client singleton (default export)                                                                             |
+| `app/_lib/auth.ts`                               | `requireAdmin()` guard for server actions                                                                            |
+| `app/_lib/api-auth.ts`                           | `assertAdminRequest()` / `assertCronRequest()` for API routes                                                        |
+| `proxy.ts`                                       | Clerk middleware, route protection + admin RBAC                                                                      |
+| `app/_lib/actions/event.actions.ts`              | Event CRUD server actions                                                                                            |
+| `app/_lib/crawlers/`                             | Web scrapers for Bright Bear + DCBP                                                                                  |
+| `app/_lib/services/event-sync-service.ts`        | Orchestrates sync pipeline                                                                                           |
+| `app/_lib/services/event-database-operations.ts` | Event upsert/deactivate + Calendar reconciliation                                                                    |
+| `app/_lib/utils/index.ts`                        | formatDateTime (ET), handleError, getEventBookingLink (class card href)                                              |
+| `app/_lib/utils/serialize.ts`                    | Prisma to plain object serializer                                                                                    |
+| `app/_lib/constants/index.ts`                    | SOURCE_TYPES, adminNavLinks, unauthenticatedLinks + socialLinks (shared by both navs and footers), table column defs |
+| `app/_lib/google-calendar.ts`                    | Google Calendar API (service account)                                                                                |
+| `app/_lib/schema.ts`                             | Zod schemas for the newsletter and category forms; the event form is react-hook-form only                            |
+| `app/(home)/page.tsx`                            | Homepage: next 3 classes from `getUpcomingEventsCached`                                                              |
+| `app/admin/events/_components/EventForm/`        | Event **create** wizard only (Steps + Fields)                                                                        |
+| `app/admin/events/[id]/edit/page.tsx`            | Event **edit** form, a separate single-page form                                                                     |
+| `app/_lib/email/newsletter-template.ts`          | Newsletter HTML + plain text, and the email palette constants                                                        |
+| `scripts/generate-og-image.ts`                   | Rebuilds the social share card after hero copy or art changes                                                        |
+| `app/(root)/private-sessions/`                   | Private session booking wizard, currently switched off                                                               |
+| `app/_lib/dormant.ts`                            | Paths that 404 in production, and how to re-enable them                                                              |
+| `vercel.json`                                    | Cron schedules + function timeouts                                                                                   |
 
 ## Env Vars
 
@@ -206,10 +240,11 @@ Key constraint: `@@unique([sourceType, sourceId])` on Event prevents duplicate s
 - **Email**: `RESEND_API_KEY`, `RESEND_SEGMENT_ID`, `RESEND_FROM_EMAIL`, `RESEND_WEBHOOK_SECRET`
 - **Storage**: `BLOB_READ_WRITE_TOKEN`
 - **Cron**: `CRON_SECRET`, gating the scheduled job
+- **Local dev**: `MOCK_EVENTS=true` makes `getAllEvents`, `getEventById` and `updateEvent` serve fixtures from `app/_lib/utils/mock-events.ts` instead of Postgres
 - **App**: `NEXT_PUBLIC_SERVER_URL` (Stripe return URLs and account links)
 - **Testing**: `NEXT_PUBLIC_APP_URL` (Playwright base URL, distinct from `NEXT_PUBLIC_SERVER_URL`), `CLERK_PUBLISHABLE_KEY` (unprefixed, gates `@clerk/testing`), four `E2E_CLERK_*` credentials
 
-Known naming trap: the Clerk webhook secret is read as `CLERK_WEBHOOK_SECRET` and the Stripe one as `STRIPE_WEBHOOK_SIGNING_SECRET`, but older env files use `WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET`, and the Clerk route's own error string still says `WEBHOOK_SECRET`. If a webhook silently fails, check the name first.
+Known naming trap: the Clerk webhook secret is read as `CLERK_WEBHOOK_SECRET` and the Stripe one as `STRIPE_WEBHOOK_SIGNING_SECRET`, but older env files use `WEBHOOK_SECRET` and `STRIPE_WEBHOOK_SECRET`, so the trap is in old env files rather than in the code. The Clerk route logs the correct name; only its local variable is called `WEBHOOK_SECRET`. If a webhook silently fails, check the name first.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

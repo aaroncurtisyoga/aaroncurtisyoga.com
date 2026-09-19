@@ -86,10 +86,11 @@ export async function addNewsletterEntry(data: SignupInputs) {
 
     if (error) {
       if (/already exist/i.test(error.message)) {
-        return {
-          apiError: "ALREADY_SUBSCRIBED",
-          message: "Looks like you're already subscribed.",
-        };
+        // Deliberately indistinguishable from a fresh signup. This action is
+        // unauthenticated, so returning "already subscribed" would let anyone
+        // test whether a given address is on the list.
+        console.info("[newsletter] signup for an address already subscribed");
+        return { message: "You're on the list!" };
       }
       console.error("Newsletter subscription error:", error);
       return {
@@ -1023,8 +1024,8 @@ function getEtMondayIso(now: Date): string {
 
 /**
  * Builds the "Upcoming" (featured events) and "Classes This Week" (this week's
- * remaining classes) blocks appended after the writer's message — mirroring the
- * homepage's two sections. Returns "" when both are empty so the newsletter
+ * remaining classes) blocks appended after the writer's message. Returns ""
+ * when both are empty so the newsletter
  * simply omits them. Kept out of the saved draft so duplicating a newsletter
  * never bakes in a stale snapshot.
  */

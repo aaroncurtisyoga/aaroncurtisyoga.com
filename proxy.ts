@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { isDormantPath } from "@/app/_lib/dormant";
 
 const isAuthenticatedRoute = createRouteMatcher([
   "/account",
@@ -39,6 +40,13 @@ const authorizedParties = [
 
 export default clerkMiddleware(
   async (auth, req) => {
+    // Switched-off features answer 404 before anything else runs, so a dormant
+    // route is not discoverable and its handler never executes. See
+    // app/_lib/dormant.ts for the list and how to bring one back.
+    if (isDormantPath(req.nextUrl.pathname)) {
+      return new NextResponse(null, { status: 404 });
+    }
+
     const authObject = await auth();
 
     const needsAuth = isAuthenticatedRoute(req) || isAdminRoute(req);
@@ -70,7 +78,13 @@ export default clerkMiddleware(
 
 export const config = {
   matcher: [
-    "/((?!.*\\..*|_next|api/cron/|api/webhooks/).*)",
+    // Everything except Next internals, the two API prefixes that authenticate
+    // themselves, and requests for a static file.
+    //
+    // The extension test is anchored to the END of the path on purpose. An
+    // earlier version excluded any path *containing* a dot, which meant
+    // /admin/<id>.x/edit never reached this middleware and rendered to anyone.
+    "/((?!_next|api/cron/|api/webhooks/|.*\\.(?:ico|png|jpe?g|gif|svg|webp|avif|css|js|mjs|map|txt|xml|json|webmanifest|woff2?|ttf|otf)$).*)",
     "/",
     "/api/((?!cron/|webhooks/).*)",
     "/trpc(.*)",

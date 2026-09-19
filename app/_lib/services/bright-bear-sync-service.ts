@@ -7,6 +7,7 @@ import {
   isBrowserlessRateLimit,
 } from "@/app/_lib/utils/retry-helper";
 import { SOURCE_TYPES } from "@/app/_lib/constants";
+import { escapeHtml } from "@/app/_lib/email/event-html";
 
 export class BrightBearSyncService {
   private crawler = new BrightBearCrawler();
@@ -47,7 +48,7 @@ export class BrightBearSyncService {
         isFree: false,
         isHostedExternally: true,
         price: cls.price?.replace("$", "") || "20",
-        description: `Join Aaron Curtis for ${cls.title} at Bright Bear Yoga DC. Click "Register at Bright Bear" to book your spot.`,
+        description: `Join Aaron Curtis for ${escapeHtml(cls.title)} at Bright Bear Yoga DC. Click "Register at Bright Bear" to book your spot.`,
         isActive: true,
       }));
 

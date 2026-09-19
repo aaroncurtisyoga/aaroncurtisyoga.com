@@ -1,5 +1,7 @@
 "use server";
 
+import { requireAdmin } from "@/app/_lib/auth";
+
 import {
   Client,
   PlaceAutocompleteResponse,
@@ -22,6 +24,9 @@ interface AutocompletePrediction {
 export const autocompleteSuggestions = async (
   search: string,
 ): Promise<AutocompletePrediction[]> => {
+  // Billed Google Places call. Exported from a "use server" module, so this
+  // is a public POST endpoint; the admin event form is its only caller.
+  await requireAdmin();
   if (!search?.trim()) {
     return [];
   }
@@ -49,6 +54,9 @@ export const autocompleteSuggestions = async (
 export const placeDetails = async (
   placeId: string,
 ): Promise<PlaceDetailsResponseData["result"] | null> => {
+  // Billed Google Places call. Exported from a "use server" module, so this
+  // is a public POST endpoint; the admin event form is its only caller.
+  await requireAdmin();
   if (!placeId) {
     return null;
   }

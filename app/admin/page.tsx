@@ -10,11 +10,16 @@ import {
 import { Card } from "@/components/ui/card";
 import AdminPage from "@/app/admin/_components/AdminPage";
 import prisma from "@/app/_lib/prisma";
+import { requireAdmin } from "@/app/_lib/auth";
 import { getSubscriberCount } from "@/app/_lib/actions/newsletter.actions";
 
 type Stat = number | string | null;
 
 async function getStats() {
+  // proxy.ts gates the route, but this reads user and order counts, so it
+  // checks for itself rather than trusting the middleware.
+  await requireAdmin();
+
   const now = new Date();
   const [events, upcoming, orders, users, categories, subscriberData] =
     await Promise.all([

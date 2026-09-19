@@ -7,6 +7,7 @@ import {
   isBrowserlessRateLimit,
 } from "@/app/_lib/utils/retry-helper";
 import { SOURCE_TYPES } from "@/app/_lib/constants";
+import { escapeHtml } from "@/app/_lib/email/event-html";
 
 export class DCBPSyncService {
   private crawler = new DCBPCrawler();
@@ -43,7 +44,7 @@ export class DCBPSyncService {
         isFree: false,
         isHostedExternally: true,
         price: "25",
-        description: `Join Aaron Curtis for ${cls.title} at DC Bouldering Project. Visit DCBP website for more information.`,
+        description: `Join Aaron Curtis for ${escapeHtml(cls.title)} at DC Bouldering Project. Visit DCBP website for more information.`,
         isActive: true,
       }));
 

@@ -1,5 +1,4 @@
 import { FC } from "react";
-import { auth } from "@clerk/nextjs/server";
 import { Event, Order } from "@prisma/client";
 import PurchaseHistoryTable from "@/app/(root)/account/_components/PurchaseHistoryTable";
 import { getOrdersByUser } from "@/app/_lib/actions/order.actions";
@@ -26,16 +25,11 @@ interface AccountPageProps {
 }
 
 const AccountPage: FC<AccountPageProps> = async ({ searchParams }) => {
-  const authResult = await auth();
-  const userId = authResult?.sessionClaims?.metadata?.userId as string;
-
   const resolvedParams = await searchParams;
   const ordersPage = Number(resolvedParams?.ordersPage) || 1;
 
-  const orders: OrderResponse = await getOrdersByUser({
-    userId,
-    page: ordersPage,
-  });
+  // getOrdersByUser reads the buyer from the session itself.
+  const orders: OrderResponse = await getOrdersByUser({ page: ordersPage });
 
   return (
     <section className={"wrapper py-5 md:py-10"}>

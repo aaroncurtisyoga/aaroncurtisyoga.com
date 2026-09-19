@@ -1,4 +1,9 @@
-const CACHE_NAME = "acy-v1";
+// Bump this whenever an unhashed asset under /icons/, /assets/ or a bare
+// .png/.ico path changes. Those are cached first-hit and served from cache
+// forever at a stable URL, so a returning visitor keeps the old file until
+// the name changes and the activate handler drops the previous cache.
+// v2: "AC" app icons and favicon recolored from royal blue to moss.
+const CACHE_NAME = "acy-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -44,8 +49,20 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ||
           fetch(request).then((response) => {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+            // Only store a real, same-origin success. Caching a 404 or a
+            // truncated edge response would pin it at that URL until the
+            // CACHE_NAME changes.
+            if (
+              response.ok &&
+              response.status === 200 &&
+              response.type === "basic"
+            ) {
+              const clone = response.clone();
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => cache.put(request, clone))
+                .catch(() => {});
+            }
             return response;
           }),
       ),

@@ -6,11 +6,14 @@
 
 const nextConfig = {
   images: {
+    // Hostname alone lets the optimizer fetch over http and from any path.
+    // Pinning the protocol costs nothing. No `search: ""` here: Clerk avatar
+    // URLs carry query parameters and would stop resolving.
+    // covers.openlibrary.org is gone with the unwired Book model.
     remotePatterns: [
-      { hostname: "*.public.blob.vercel-storage.com" },
-      { hostname: "img.clerk.com" },
-      { hostname: "images.clerk.dev" },
-      { hostname: "covers.openlibrary.org" }
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "img.clerk.com" },
+      { protocol: "https", hostname: "images.clerk.dev" },
     ],
     qualities: [50, 75, 80, 90, 100],
   },

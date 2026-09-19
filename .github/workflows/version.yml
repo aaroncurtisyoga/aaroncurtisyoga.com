@@ -63,12 +63,20 @@ jobs:
 
       - name: Determine version bump type
         id: bump_type
+        # Commit messages and dispatch inputs reach this step through env, not
+        # through ${{ }} interpolation. Interpolating them substitutes the raw
+        # text into the script before bash parses it, so a crafted commit
+        # message could run arbitrary commands with this job's token.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          VERSION_TYPE: ${{ github.event.inputs.version_type }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "type=${{ github.event.inputs.version_type }}" >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "type=$VERSION_TYPE" >> $GITHUB_OUTPUT
           else
             # Auto-detect from commit message
-            commit_msg="${{ github.event.head_commit.message }}"
+            commit_msg="$COMMIT_MSG"
             if [[ $commit_msg == *"[major]"* ]]; then
               echo "type=major" >> $GITHUB_OUTPUT
             elif [[ $commit_msg == *"[minor]"* ]]; then

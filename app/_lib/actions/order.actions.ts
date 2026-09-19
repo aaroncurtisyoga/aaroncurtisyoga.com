@@ -1,15 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import Stripe from "stripe";
 import prisma from "@/app/_lib/prisma";
 import {
   CheckoutOrderParams,
-  CreateOrderParams,
   GetOrdersByEventParams,
   GetOrdersByUserParams,
 } from "@/app/_lib/types";
+import { auth } from "@clerk/nextjs/server";
+import { requireAdmin } from "@/app/_lib/auth";
+import { PAYMENTS_PARKED } from "@/app/_lib/dormant";
 import { handleError } from "@/app/_lib/utils";
 import {
   calculateSkipAmount,
@@ -19,6 +20,14 @@ import { buildOrderSearchConditions } from "@/app/_lib/utils/query-builders";
 import { serialize } from "@/app/_lib/utils/serialize";
 
 export const checkoutOrder = async (order: CheckoutOrderParams) => {
+  // An unauthenticated POST endpoint that takes the price and the product name
+  // from its caller, so it must not reach Stripe while nothing is being sold.
+  // The path-based switch can't cover a server action, hence the guard here.
+  // Before clearing PAYMENTS_PARKED: require a session, take buyerId from
+  // sessionClaims, and read the price from the Event row, not the argument.
+  if (PAYMENTS_PARKED) {
+    throw new Error("Checkout is disabled while payments are parked.");
+  }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const price = order.isFree ? 0 : Number(order.price) * 100;
 
@@ -58,32 +67,15 @@ export const checkoutOrder = async (order: CheckoutOrderParams) => {
   redirect(checkoutSession.url as string);
 };
 
-export const createOrder = async (order: CreateOrderParams) => {
-  const data: Prisma.OrderCreateInput = {
-    buyer: { connect: { id: order.buyerId } },
-    createdAt: order.createdAt,
-    stripeId: order.stripeId,
-    totalAmount: order.totalAmount,
-    type: order.type,
-    ...(order.eventId && { event: { connect: { id: order.eventId } } }),
-  };
-
-  try {
-    const order = await prisma.order.create({
-      data,
-    });
-    return serialize(order);
-  } catch (error) {
-    handleError(error);
-    return null;
-  }
-};
-
 export async function getOrdersByEvent({
   searchString,
   eventId,
 }: GetOrdersByEventParams) {
   try {
+    // Exported from a "use server" module, so this is a public POST endpoint.
+    // It returns buyer names for an event and must check the caller itself.
+    await requireAdmin();
+
     const whereConditions = buildOrderSearchConditions(searchString, eventId);
 
     const orders = await prisma.order.findMany({
@@ -104,14 +96,21 @@ export async function getOrdersByEvent({
   }
 }
 
+/**
+ * The signed-in buyer's own order history. `userId` is deliberately ignored:
+ * this is a public POST endpoint, so trusting a caller-supplied id would let
+ * anyone read anyone else's purchases. The id comes from the session instead.
+ */
 export async function getOrdersByUser({
-  userId,
   limit = 10,
   page,
-}: GetOrdersByUserParams) {
+}: Omit<GetOrdersByUserParams, "userId">) {
   try {
-    // No user → no orders (a signed-out/unknown buyer has none). Coercing the
-    // null away would drop the filter and return everyone's orders.
+    const { sessionClaims } = await auth();
+    const userId = sessionClaims?.metadata?.userId as string | undefined;
+
+    // No session → no orders. Coercing the null away would drop the filter and
+    // return everyone's orders.
     if (!userId) return { data: [], totalPages: 0 };
 
     const skipAmount = calculateSkipAmount(Number(page), limit);

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { OrderType } from "@prisma/client";
 import stripe from "stripe";
 import prisma from "@/app/_lib/prisma";
-import { createOrder } from "@/app/_lib/actions/order.actions";
+import { createOrder } from "@/app/_lib/services/order-database-operations";
+import { isDormantPath } from "@/app/_lib/dormant";
 
 function buildOrderData(
   stripeId: string,
@@ -42,6 +43,12 @@ async function processOrder(order: ReturnType<typeof buildOrderData>) {
 }
 
 export async function POST(request: Request) {
+  // proxy.ts deliberately skips /api/webhooks/, so the kill switch is checked
+  // here instead. See app/_lib/dormant.ts.
+  if (isDormantPath(new URL(request.url).pathname)) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   const body = await request.text();
 
   const sig = request.headers.get("stripe-signature") as string;

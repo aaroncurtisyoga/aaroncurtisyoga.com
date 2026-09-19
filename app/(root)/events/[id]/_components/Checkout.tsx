@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Event } from "@prisma/client";
 import CheckoutButton from "@/app/(root)/events/[id]/_components/CheckoutButton";
 import CheckoutSkeleton from "@/app/(root)/events/[id]/_components/CheckoutSkeleton";
+import { PAYMENTS_PARKED } from "@/app/_lib/dormant";
 
 interface ICheckoutButtonProps {
   event: Event;
@@ -43,6 +44,11 @@ const Checkout: FC<ICheckoutButtonProps> = ({ event }) => {
             Register at Bright Bear
           </a>
         </Button>
+      ) : PAYMENTS_PARKED ? (
+        <p className="text-center text-muted-foreground">
+          Booking for this one isn&apos;t open here yet. Get in touch and
+          I&apos;ll save you a spot.
+        </p>
       ) : (
         <>
           <SignedOut>

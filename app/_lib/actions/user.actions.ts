@@ -12,6 +12,10 @@ import { serialize } from "@/app/_lib/utils/serialize";
 
 export async function getAllUsers({ query, limit = 8, page = 1 }) {
   try {
+    // Exported from a "use server" module, so this is a public POST endpoint.
+    // It returns the whole user directory and must check the caller itself.
+    await requireAdmin();
+
     const skipAmount = calculateSkipAmount(page, limit);
     const whereConditions = buildUserSearchConditions(query);
 
