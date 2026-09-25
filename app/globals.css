@@ -233,7 +233,10 @@ img {
   --color-ink-muted: #55594d; /* secondary text */
   --color-ink-label: #6b7360; /* uppercase labels, placeholders, footer */
   --color-line: #c5bfae; /* hairlines on sand */
-  --spacing-gutter: clamp(20px, 5vw, 56px); /* homepage side padding */
+  /* Side padding for the moss/sand pages. Past a 1280px content width it grows
+     with the viewport, so content caps and centers on a wide monitor while
+     section backgrounds still run edge to edge. */
+  --spacing-gutter: max(clamp(20px, 5vw, 56px), calc((100vw - 1280px) / 2));
   --spacing-section: clamp(56px, 8vw, 96px); /* homepage section padding */
 }
 

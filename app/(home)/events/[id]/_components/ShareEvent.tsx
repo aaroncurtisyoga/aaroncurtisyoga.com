@@ -30,7 +30,7 @@ const ShareEvent: FC<ShareEventProps> = ({ eventId }) => {
         size="icon"
         onClick={handleClick}
         variant="ghost"
-        className="rounded-full"
+        className="rounded-full text-ink hover:bg-sand-deep hover:text-ink"
         aria-label="Copy link to event"
       >
         {isRecentlyCopied ? <Check /> : <Share />}

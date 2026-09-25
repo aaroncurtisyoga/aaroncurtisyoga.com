@@ -12,8 +12,8 @@ const Hero: FC<HeroProps> = async ({ imageUrl }) => {
 
   const blurDataURL = await getBase64(imageUrl);
   return (
-    <div className="event-hero-wrapper w-full relative">
-      <div className={"event-hero h-[50vw] md:h-[500px]"}>
+    <div className="relative mt-[clamp(28px,4vw,48px)] w-full overflow-hidden rounded-[28px]">
+      <div className="h-[56vw] md:h-[500px]">
         <Image
           alt="Event Hero Image"
           className="object-cover object-center overflow-hidden relative"

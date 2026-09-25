@@ -64,7 +64,7 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 - Two more tokens in the same `@theme inline` block: `--color-navy` #131826 (ink and dark surfaces) and `--color-band` #eef1fa (pale section band), exposed as `bg-navy` / `bg-band`
 - **Brand color pipeline.** The tokens in `globals.css` are not the only copy. Changing a brand color means touching, in order: (1) the `@theme inline` tokens; (2) `app/(home)/layout.tsx`, which repeats sand in `viewport.themeColor` and in an inline `html,body` style; (3) `public/manifest.webmanifest` (`theme_color`, `background_color`); (4) `app/_lib/email/newsletter-template.ts`, whose MOSS/INK/SAND/MUTED constants email cannot read from CSS; (5) `app/_lib/email/event-html.ts` (`CTA`); (6) the three asset generators under `scripts/`, which bake color into checked-in PNGs. Grep the hex before assuming one edit is enough
 - Fonts loaded in `app/layout.tsx` via `next/font/google` and mapped in `tailwind.config.js`: Barlow to `font-sans`, Merriweather to `font-serif`, Anton to `font-display`, plus Cormorant Garamond to `font-cormorant` and Karla to `font-karla` for the homepage
-- **Homepage palette (Sept 2026 redesign)**: the homepage in `app/(home)` uses a moss + sand system, not the blues. Tokens in the same `@theme inline` block: `sand` #ece6da (page), `sand-deep` #dfd7c6 (cards), `moss` #3f4a35 (accent), `ink` #23281f, `ink-muted` #55594d, `ink-label` #6b7360, `line` #c5bfae, plus `--spacing-gutter` / `--spacing-section` for its fluid padding (`px-gutter`, `py-section`). Every other public page still uses the blue system; restyling the shared Header/Footer and inner pages to match is a follow-up, not done
+- **Homepage palette (Sept 2026 redesign)**: everything in `app/(home)` (the homepage, event detail pages and the newsletter archive) uses a moss + sand system, not the blues. Tokens in the same `@theme inline` block: `sand` #ece6da (page), `sand-deep` #dfd7c6 (cards), `moss` #3f4a35 (accent), `ink` #23281f, `ink-muted` #55594d, `ink-label` #6b7360, `line` #c5bfae, plus `--spacing-gutter` / `--spacing-section` for its fluid padding (`px-gutter`, `py-section`). The gutter also caps content at 1280px on wide screens (it grows past that), so use `px-gutter` for side padding rather than a `max-w-*` wrapper, which would cap twice. The newsletter email mirrors it too: same colors, Cormorant headings with a Georgia fallback, Karla body. The pages left in `app/(root)` (account, the dormant private-sessions wizard) still use the blue system and the shared Header/Footer
 - The public site is pinned light. `app/providers.tsx` sets `forcedTheme="light"`, so `dark:` variants on public components are dead code
 
 ### Newsletter (Resend)
@@ -103,7 +103,7 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 - **Reads vs writes**: server actions live in `*.actions.ts`. `*.queries.ts` holds `unstable_cache`-wrapped versions of public and hot reads (named `*Cached`) so public and crawler traffic doesn't keep the Neon DB awake. See `event.queries.ts`, `newsletter.queries.ts`. Bust the matching tag from `app/_lib/constants/cache-tags.ts` on mutation. The homepage awaits `connection()` so it renders per request (its "today / in N days" label needs the real clock) while its data still comes from the cache. Note that Next 16 documents `unstable_cache` as replaced by `use cache`; the existing wrappers still use it because `cacheComponents` is off, so match the existing pattern rather than mixing the two.
 - **Serialize at the server to client boundary**: return `serialize()` (`app/_lib/utils/serialize.ts`) for any Prisma object crossing into a client component; it returns a `Serialized<T>` where Dates become ISO strings.
 - **Hooks**: cross-feature hooks live in `app/_hooks`; feature-local hooks colocate with their feature (e.g. `app/admin/events/_components/hooks`).
-- **New sync source**: add a `SOURCE_TYPES` member (`app/_lib/constants`), a crawler in `crawlers/`, a `*-sync-service.ts` (clone an existing one), then wire it into `event-sync-service.ts`, the sync-status route, and the `admin/sync` dashboard. Two more that are easy to miss: a location getter in `location-category-service.ts`, and the source label in `app/(root)/events/[id]/_components/Checkout.tsx`, which currently hardcodes Bright Bear for every synced event.
+- **New sync source**: add a `SOURCE_TYPES` member (`app/_lib/constants`), a crawler in `crawlers/`, a `*-sync-service.ts` (clone an existing one), then wire it into `event-sync-service.ts`, the sync-status route, and the `admin/sync` dashboard. Two more that are easy to miss: a location getter in `location-category-service.ts`, and the source label in `app/(home)/events/[id]/_components/Checkout.tsx`, which currently hardcodes Bright Bear for every synced event.
 - **Dormant routes**: `app/_lib/dormant.ts` lists paths that answer 404 in production because the feature is parked. `proxy.ts` enforces it for everything its `matcher` covers; `/api/webhooks/stripe` checks the list itself because the matcher skips webhooks. Off today: `/api/create-payment-intent`, `/api/upload-blob`, `/api/webhooks/stripe`, `/private-sessions`. Delete a line to bring one back, and re-read the handler first.
 - **Content Security Policy**: defined at the top of `next.config.mjs` and sent on every response. It is allowlist-based, so a new third-party script, map provider, font host or image origin has to be added there or the browser drops it with no visible error. Two knowing compromises are documented in that comment: `unsafe-inline` for scripts (Next's hydration payload is inline on every page) and `unsafe-eval` (Clerk's sign-in widget needs it, and sign-in is the only way into `/admin`). Verified with zero violations on the homepage, `/newsletter`, an archived issue, an event page and `/sign-in`.
 - **Server actions are public endpoints**: every export from a `"use server"` module is a POST any client can call with a forged payload. Each one enforces its own authorization; never rely on the caller. Reads that return other people's data call `requireAdmin()`, and anything scoped to "me" derives the id from the session rather than taking it as an argument (see `getOrdersByUser`). Internal helpers that shouldn't be callable at all live outside the actions files, like `createOrder` in `app/_lib/services/order-database-operations.ts`.
@@ -125,18 +125,16 @@ Existing strings that break these rules are legacy, not the house style. Don't c
 ```
 app/
 ├── (auth)/                    # Sign-in/sign-up pages (Clerk)
-├── (home)/                    # Homepage, with its own nav + footer (moss/sand redesign)
-│   ├── _components/           # Section components, plus HomeNavAccount (admin entry via
-│   │                          # UserDropdown) and HomeNewsletterForm (email-only signup)
+├── (home)/                    # Moss/sand pages sharing HomeNav + HomeFooter: the homepage,
+│   │                          # events/[id] and newsletter/ (public sent-issue archive)
+│   ├── _components/           # Section components (FeaturedEvents, UpcomingClasses, ...), plus
+│   │                          # HomeNavAccount (admin entry via UserDropdown) and HomeNewsletter
 │   ├── _lib/                  # next-class date helpers + the HomepageClass type
 │   ├── layout.tsx             # paints <html> sand, sets the page themeColor
 │   └── page.tsx
 ├── _components/               # App-wide shared: Header/, Footer, NewsletterForm, GoogleMap, Tiptap/
-├── (root)/                    # Every other public page, wrapped by the shared Header/Footer
-│   ├── _components/           # Only three live files: EventCard + EventCard/EventCardContent
-│   │                          # (admin submit preview) and NewsletterBand (/newsletter)
-│   ├── events/                # Event detail pages
-│   ├── newsletter/            # Public sent-issue archive
+├── (root)/                    # Remaining blue-system pages, wrapped by the shared Header/Footer
+│   ├── _components/           # Only EventCard + EventCard/EventCardContent (admin submit preview)
 │   ├── private-sessions/      # Multi-step booking wizard, dormant (404s)
 │   └── account/               # User account
 ├── admin/                     # Admin dashboard (RBAC protected)
@@ -179,7 +177,7 @@ scripts/                       # import-subscribers, version.sh, plus three asse
 
 Site (9):
 
-- **Event**: title, dates, price, isFree, isFeatured (newsletter-only since the Sept 2026 homepage redesign), isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
+- **Event**: title, dates, price, isFree, isFeatured (one admin star: the homepage's featured section until `endDateTime` passes, and the newsletter's Upcoming block), isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
 - **User**: clerkId (unique), email, firstName, lastName, photo
 - **Order**: stripeId, totalAmount, type (EVENT/PRIVATE_SESSION), buyer to User, event to Event
 - **EventUser**: join table (userId + eventId composite PK)
@@ -219,7 +217,7 @@ Key constraint: `@@unique([sourceType, sourceId])` on Event prevents duplicate s
 | `app/_lib/constants/index.ts`                    | SOURCE_TYPES, adminNavLinks, unauthenticatedLinks + socialLinks (shared by both navs and footers), table column defs |
 | `app/_lib/google-calendar.ts`                    | Google Calendar API (service account)                                                                                |
 | `app/_lib/schema.ts`                             | Zod schemas for the newsletter and category forms; the event form is react-hook-form only                            |
-| `app/(home)/page.tsx`                            | Homepage: next 3 classes from `getUpcomingEventsCached`                                                              |
+| `app/(home)/page.tsx`                            | Homepage: starred events from `getHomepageFeaturedEventsCached`, then the next 3 other classes                       |
 | `app/admin/events/_components/EventForm/`        | Event **create** wizard only (Steps + Fields)                                                                        |
 | `app/admin/events/[id]/edit/page.tsx`            | Event **edit** form, a separate single-page form                                                                     |
 | `app/_lib/email/newsletter-template.ts`          | Newsletter HTML + plain text, and the email palette constants                                                        |
@@ -241,7 +239,7 @@ Key constraint: `@@unique([sourceType, sourceId])` on Event prevents duplicate s
 - **Email**: `RESEND_API_KEY`, `RESEND_SEGMENT_ID`, `RESEND_FROM_EMAIL`, `RESEND_WEBHOOK_SECRET`
 - **Storage**: `BLOB_READ_WRITE_TOKEN`
 - **Cron**: `CRON_SECRET`, gating the scheduled job
-- **Local dev**: `MOCK_EVENTS=true` makes `getAllEvents`, `getEventById` and `updateEvent` serve fixtures from `app/_lib/utils/mock-events.ts` instead of Postgres
+- **Local dev**: `MOCK_EVENTS=true` makes `getAllEvents`, `getEventById`, `updateEvent` and the two homepage reads serve fixtures (including one featured workshop) from `app/_lib/utils/mock-events.ts` instead of Postgres
 - **App**: `NEXT_PUBLIC_SERVER_URL` (Stripe return URLs and account links)
 - **Testing**: `NEXT_PUBLIC_APP_URL` (Playwright base URL, distinct from `NEXT_PUBLIC_SERVER_URL`), `CLERK_PUBLISHABLE_KEY` (unprefixed, gates `@clerk/testing`), four `E2E_CLERK_*` credentials
 

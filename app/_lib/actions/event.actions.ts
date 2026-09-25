@@ -187,6 +187,14 @@ export async function deleteEvent(
   }
 }
 
+// Local dev only: MOCK_EVENTS=true serves fixtures from mock-events.ts
+// instead of Postgres. Not exported, so it isn't a callable server action.
+function mockEventsEnabled() {
+  return (
+    process.env.NODE_ENV === "development" && process.env.MOCK_EVENTS === "true"
+  );
+}
+
 export async function getAllEvents({
   query,
   limit = 8,
@@ -201,9 +209,7 @@ export async function getAllEvents({
     await requireAdmin();
 
     // In dev mode with MOCK_EVENTS=true, return mock events for UI testing
-    const useMockEvents =
-      process.env.NODE_ENV === "development" &&
-      process.env.MOCK_EVENTS === "true";
+    const useMockEvents = mockEventsEnabled();
 
     if (useMockEvents) {
       const mockEvents = generateMockEvents(20);
@@ -268,9 +274,7 @@ export async function getEventById(
 ): Promise<EventWithDetails | null> {
   try {
     // In dev mode with MOCK_EVENTS=true, return mock event for UI testing
-    const useMockEvents =
-      process.env.NODE_ENV === "development" &&
-      process.env.MOCK_EVENTS === "true";
+    const useMockEvents = mockEventsEnabled();
 
     if (useMockEvents && eventId.startsWith("mock-event-")) {
       const mockEvents = generateMockEvents(20);
@@ -353,9 +357,9 @@ export async function getFeaturedEvents(limit = 2, from: Date = new Date()) {
 }
 
 /**
- * Feature/unfeature an event for the newsletter's Upcoming block. Works for
- * synced events too, since featuring is independent of source. Admin-only
- * routes are protected by proxy.ts.
+ * Feature/unfeature an event. One star drives both the homepage's featured
+ * section and the newsletter's Upcoming block. Works for synced events too,
+ * since featuring is independent of source.
  */
 export async function toggleEventFeatured(
   eventId: string,
@@ -367,9 +371,9 @@ export async function toggleEventFeatured(
       where: { id: eventId },
       data: { isFeatured },
     });
-    // Only the newsletter reads isFeatured, and it reads uncached, so there is
-    // nothing public to revalidate. Busting the events tag here would evict the
-    // homepage cache and wake Neon for no visible change.
+    // The homepage reads isFeatured through the cached queries, so a star has
+    // to evict them or it wouldn't show for up to 15 minutes.
+    revalidateTag(EVENTS_CACHE_TAG, { expire: 0 });
     revalidatePath("/admin/events");
     return { success: true };
   } catch (error) {
@@ -391,11 +395,30 @@ export async function toggleEventFeatured(
 export async function getUpcomingEvents(
   limit = 3,
   from: Date = new Date(),
+  excludeIds: string[] = [],
 ): Promise<{
   events: Serialized<EventWithLocationAndCategory>[];
   total: number;
 }> {
-  const where = { isActive: true, startDateTime: { gte: from } };
+  // excludeIds keeps the homepage's featured events out of the class list so
+  // nothing shows up twice. Capped for the same reason as `take` below.
+  if (mockEventsEnabled()) {
+    const upcoming = generateMockEvents(20).filter(
+      (e) => e.startDateTime >= from && !excludeIds.includes(e.id),
+    );
+    return {
+      events: serialize(upcoming.slice(0, limit)),
+      total: upcoming.length,
+    };
+  }
+
+  const where = {
+    isActive: true,
+    startDateTime: { gte: from },
+    ...(excludeIds.length > 0 && {
+      id: { notIn: excludeIds.slice(0, 12) },
+    }),
+  };
   const [events, total] = await Promise.all([
     prisma.event.findMany({
       where,
@@ -408,6 +431,32 @@ export async function getUpcomingEvents(
     prisma.event.count({ where }),
   ]);
   return { events: serialize(events), total };
+}
+
+/**
+ * Events starred in admin, for the homepage's featured section. Unlike the
+ * class list this keys on `endDateTime`, so a workshop stays up until it's
+ * over rather than vanishing the minute it starts.
+ */
+export async function getHomepageFeaturedEvents(
+  limit = 2,
+  from: Date = new Date(),
+): Promise<Serialized<EventWithLocationAndCategory>[]> {
+  if (mockEventsEnabled()) {
+    return serialize(
+      generateMockEvents(20)
+        .filter((e) => e.isFeatured && e.endDateTime >= from)
+        .slice(0, limit),
+    );
+  }
+
+  const events = await prisma.event.findMany({
+    where: { isActive: true, isFeatured: true, endDateTime: { gte: from } },
+    orderBy: { startDateTime: "asc" },
+    take: Math.min(Math.max(limit, 1), 4),
+    include: { category: true, location: true },
+  });
+  return serialize(events);
 }
 
 /**
@@ -481,9 +530,7 @@ export async function updateEvent({
     }
 
     // In dev mode with MOCK_EVENTS=true, simulate successful update for mock events
-    const useMockEvents =
-      process.env.NODE_ENV === "development" &&
-      process.env.MOCK_EVENTS === "true";
+    const useMockEvents = mockEventsEnabled();
 
     if (useMockEvents && eventId?.startsWith("mock-event-")) {
       console.log("[Mock] Simulating event update for:", eventId, event);

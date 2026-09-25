@@ -109,5 +109,31 @@ export function generateMockEvents(
     });
   }
 
+  // One starred workshop, so the homepage's featured section has something to
+  // show. Taught at a studio with walk-in tickets, like the real ones.
+  const featuredStart = new Date(now);
+  featuredStart.setDate(featuredStart.getDate() + 19);
+  featuredStart.setHours(20, 0, 0, 0);
+  const workshop = MOCK_CATEGORIES[3];
+  const studio = MOCK_LOCATIONS[0];
+  events.push({
+    ...events[0],
+    id: "mock-event-featured",
+    description:
+      "<p><strong>Not a member? Just come.</strong> Buy a $15 ticket at the front desk, any time up to 30 minutes before we start. No need to book ahead.</p><p><strong>Members:</strong> free. Sign up the way you'd book any other class at the gym.</p><p>Part of the studio's monthly Wellbeing Wednesdays series.</p>",
+    startDateTime: featuredStart,
+    endDateTime: new Date(featuredStart.getTime() + 60 * 60 * 1000),
+    isFree: false,
+    isFeatured: true,
+    isHostedExternally: true,
+    maxAttendees: 30,
+    price: "15",
+    title: "Stretch & Soundbath",
+    categoryId: workshop.id,
+    category: workshop,
+    locationId: studio.id,
+    location: studio,
+  });
+
   return events;
 }

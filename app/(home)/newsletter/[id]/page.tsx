@@ -53,15 +53,12 @@ const NewsletterIssuePage = async ({ params }: NewsletterIssuePageProps) => {
   try {
     newsletter = await getPublicNewsletterCached(id);
   } catch {
-    // Transient DB failure (Neon waking up). Deliberately NOT cached — the
-    // read throws instead of returning null — so a refresh retries.
+    // Transient DB failure (Neon waking up). Deliberately NOT cached: the
+    // read throws instead of returning null, so a refresh retries.
     return (
-      <div className="mx-auto w-full max-w-screen-2xl px-4 py-16 md:px-6 lg:px-12">
-        <p className="text-muted-foreground">
-          This issue is taking a moment to load — please refresh in a few
-          seconds.
-        </p>
-      </div>
+      <p className="px-gutter pb-section text-[17px] text-ink-muted">
+        This issue is taking a moment to load. Please refresh in a few seconds.
+      </p>
     );
   }
   if (!newsletter) notFound();
@@ -79,33 +76,32 @@ const NewsletterIssuePage = async ({ params }: NewsletterIssuePageProps) => {
   );
 
   return (
-    // Same container as the rest of the site; the email itself is 600px and
-    // centers inside the frame below.
-    <div className="mx-auto w-full max-w-screen-2xl px-4 py-8 md:px-6 md:py-12 lg:px-12">
+    <article className="px-gutter pb-section">
       <Link
         href="/newsletter"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-[15px] text-ink-muted transition-opacity hover:opacity-70"
       >
         <ArrowLeft className="h-4 w-4" /> All issues
       </Link>
-      <h1 className="mt-3 font-display text-2xl uppercase text-foreground md:text-3xl">
-        {newsletter.subject}
-      </h1>
       {newsletter.sentAt && (
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-6 text-[13px] uppercase tracking-[0.12em] text-ink-label">
           {formatDateTime(newsletter.sentAt).dateOnly}
         </p>
       )}
+      <h1 className="mt-2 max-w-[20ch] font-cormorant text-[clamp(40px,5.5vw,72px)] font-normal leading-[1] tracking-[-0.01em] text-balance">
+        {newsletter.subject}
+      </h1>
+      {/* The email is 600px wide on its own sand ground, so the frame drops
+          its border and sits flush with the page. */}
       <iframe
         title={newsletter.subject}
         srcDoc={html}
         // Links escape via the injected <base target="_blank">; everything
         // else stays sandboxed.
         sandbox="allow-popups allow-popups-to-escape-sandbox"
-        // Mirrors SAND, the email body ground in app/_lib/email/newsletter-template.ts.
-        className="mt-6 h-[75vh] w-full rounded-md border bg-sand"
+        className="mt-[clamp(24px,3vw,40px)] h-[80vh] w-full bg-sand"
       />
-    </div>
+    </article>
   );
 };
 

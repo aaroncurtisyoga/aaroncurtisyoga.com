@@ -113,7 +113,10 @@ const AddToCalendarButtons: FC<AddToCalendarButtonsProps> = ({ event }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">
+        <Button
+          variant="outline"
+          className="rounded-full border-line bg-transparent text-ink hover:bg-sand-deep hover:text-ink"
+        >
           {addedToCalendar ? <Check size={18} /> : <Calendar size={18} />}
           {addedToCalendar ? "Added!" : "Add to Calendar"}
         </Button>

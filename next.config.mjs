@@ -20,6 +20,11 @@
  * Both are worth revisiting, but the policy still does the main job: it stops a
  * script or a fetch from an origin that isn't on this list.
  *
+ * Google Fonts is here for the newsletter archive only. The site self-hosts its
+ * fonts through next/font, but an archived issue renders the email's own HTML
+ * in a srcdoc iframe, which inherits this policy, and the email links the
+ * homepage faces from Google Fonts.
+ *
  * Stripe is deliberately absent. Payments are parked (app/_lib/dormant.ts); add
  * https://js.stripe.com to script-src and frame-src when they come back.
  */
@@ -29,9 +34,9 @@ const clerk =
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${clerk} https://challenges.cloudflare.com https://maps.googleapis.com https://va.vercel-scripts.com`,
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev https://*.public.blob.vercel-storage.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.ggpht.com",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' ${clerk} https://clerk-telemetry.com https://maps.googleapis.com https://vitals.vercel-insights.com`,
   `frame-src 'self' ${clerk} https://challenges.cloudflare.com`,
   "worker-src 'self' blob:",

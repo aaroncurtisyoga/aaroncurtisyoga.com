@@ -1,6 +1,6 @@
 import { FC } from "react";
-import ShareEvent from "@/app/(root)/events/[id]/_components/ShareEvent";
-import AddToCalendarButtons from "@/app/(root)/events/[id]/_components/AddToCalendarButtons";
+import ShareEvent from "@/app/(home)/events/[id]/_components/ShareEvent";
+import AddToCalendarButtons from "@/app/(home)/events/[id]/_components/AddToCalendarButtons";
 import { formatDateTime } from "@/app/_lib/utils";
 
 interface SubheadingProps {
@@ -25,9 +25,9 @@ const Subheading: FC<SubheadingProps> = ({
   event,
 }) => {
   return (
-    <div className="wrapper-width flex justify-between items-center w-full py-3">
-      <p className={"text-base lg:text-lg font-semibold text-gray-600"}>
-        {formatDateTime(startDateTime).dateOnlyWithoutYear} • {category}
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <p className="text-[13px] uppercase tracking-[0.12em] text-ink-label">
+        {formatDateTime(startDateTime).dateOnlyWithoutYear} · {category}
       </p>
       <div className="flex items-center gap-2">
         <AddToCalendarButtons event={event} />

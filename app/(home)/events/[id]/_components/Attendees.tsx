@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import type { AttendeeUser } from "@/app/_lib/types";
+import SectionHeading from "./SectionHeading";
 
 interface AttendeesProps {
   attendees: AttendeeUser[];
@@ -9,18 +10,18 @@ interface AttendeesProps {
 const Attendees: FC<AttendeesProps> = ({ attendees }) => {
   const maxAvatarsShown = 5;
   const totalAvatarsHidden = attendees.length - maxAvatarsShown;
-  if (!attendees) return null;
+  // An empty "Attendees (0)" reads as "nobody's coming", and studio events
+  // never have sign-ups here at all.
+  if (attendees.length === 0) return null;
 
   return (
-    <div>
-      <h2 className={"text-2xl font-bold mb-3"}>
-        Attendees ({attendees.length})
-      </h2>
-      <div className="flex items-center -space-x-3 mb-6 md:mb-8">
+    <section>
+      <SectionHeading>Attendees ({attendees.length})</SectionHeading>
+      <div className="flex items-center -space-x-3">
         {attendees.slice(0, maxAvatarsShown).map((attendee, index) => (
           <Avatar
             key={`${index}-${attendee.firstName}`}
-            className="border-2 border-background"
+            className="border-2 border-sand"
           >
             {attendee.photo ? (
               <AvatarImage
@@ -35,14 +36,14 @@ const Attendees: FC<AttendeesProps> = ({ attendees }) => {
           </Avatar>
         ))}
         {totalAvatarsHidden > 0 && (
-          <Avatar className="border-2 border-background">
+          <Avatar className="border-2 border-sand">
             <AvatarFallback className="text-xs">
               +{totalAvatarsHidden}
             </AvatarFallback>
           </Avatar>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 

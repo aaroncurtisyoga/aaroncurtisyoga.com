@@ -1081,8 +1081,8 @@ async function buildEventSectionsHtml({
         if (classesThisWeek.length > 0) {
           const heading =
             weekMondayIso === getEtMondayIso(sendTime)
-              ? "Classes This Week"
-              : "Upcoming Classes";
+              ? "Classes this week"
+              : "Upcoming classes";
           sections.push(
             `<h2>${heading}</h2><ul>${classesThisWeek
               .map((event) => eventListItemHtml(event))

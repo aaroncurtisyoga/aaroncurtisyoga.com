@@ -28,6 +28,12 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Leave other origins to the browser. A fetch() made from here has to pass
+  // the CSP's connect-src, which doesn't list image and font hosts like
+  // maps.gstatic.com, so re-fetching them here failed with ERR_FAILED and
+  // broke the Google Map's tiles, marker and fonts.
+  if (url.origin !== self.location.origin) return;
+
   // Skip non-GET, API routes, auth, and webhooks
   if (
     request.method !== "GET" ||

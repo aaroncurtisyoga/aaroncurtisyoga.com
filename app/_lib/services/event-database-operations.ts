@@ -70,12 +70,24 @@ export class EventDatabaseOperations {
 
     console.log(`[Cron Sync] Creating ${eventsToCreate.length} new events...`);
 
-    // Step 1: Check for time-based duplicates in parallel
+    // Step 1: Check for time-based duplicates in parallel. Any active event
+    // that overlaps the slot counts, since Aaron can't teach two things at
+    // once. Overlap rather than an exact start match, so a hand-entered
+    // workshop still blocks the synced copy when the ZoomShift shift starts a
+    // little early for setup.
     const duplicateChecks = await Promise.all(
       eventsToCreate.map(async (eventData) => {
         const duplicate = await prisma.event.findFirst({
           where: {
-            startDateTime: eventData.startDateTime,
+            // The exact-start arm still catches a crawled event whose end
+            // equals its start, which the overlap test alone would miss.
+            OR: [
+              { startDateTime: eventData.startDateTime },
+              {
+                startDateTime: { lt: eventData.endDateTime },
+                endDateTime: { gt: eventData.startDateTime },
+              },
+            ],
             isActive: true,
             NOT: {
               AND: [

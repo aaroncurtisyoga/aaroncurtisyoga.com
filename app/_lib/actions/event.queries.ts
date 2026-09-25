@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import {
   getUpcomingEvents,
   getEventById,
+  getHomepageFeaturedEvents,
 } from "@/app/_lib/actions/event.actions";
 import { EVENTS_CACHE_TAG } from "@/app/_lib/constants/cache-tags";
 
@@ -26,8 +27,18 @@ const REVALIDATE_SECONDS = 900; // 15 minutes
 // started can linger as "next" for up to the TTL. An acceptable trade for not
 // hitting the DB on every request.
 export const getUpcomingEventsCached = unstable_cache(
-  (limit?: number) => getUpcomingEvents(limit),
+  (limit?: number, excludeIds?: string[]) =>
+    getUpcomingEvents(limit, undefined, excludeIds),
   ["upcoming-events"],
+  { tags: [EVENTS_CACHE_TAG], revalidate: REVALIDATE_SECONDS },
+);
+
+// Featured events for the homepage. Filters on `endDateTime >= now` at fill
+// time; the page filters again against the real clock, so one that ended in
+// the last 15 minutes never shows.
+export const getHomepageFeaturedEventsCached = unstable_cache(
+  (limit?: number) => getHomepageFeaturedEvents(limit),
+  ["homepage-featured-events"],
   { tags: [EVENTS_CACHE_TAG], revalidate: REVALIDATE_SECONDS },
 );
 

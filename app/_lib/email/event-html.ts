@@ -41,10 +41,11 @@ export function eventHref(event: EventWithLocationAndCategory): string {
 }
 
 export function eventWhenLabel(event: EventWithLocationAndCategory): string {
-  const { weekdayShort, monthShort, dayNumber, timeOnly } = formatDateTime(
+  // Same shape as the homepage cards: "Wed, Oct 14 · 8:00 pm".
+  const { dateShortWithoutYear, timeOnly } = formatDateTime(
     event.startDateTime,
   );
-  return `${weekdayShort}, ${monthShort} ${dayNumber} · ${timeOnly}`;
+  return `${dateShortWithoutYear} · ${timeOnly.toLowerCase()}`;
 }
 
 export function eventListItemHtml(
@@ -67,16 +68,22 @@ export function eventListItemHtml(
   if (withDescription) {
     const text = richTextToPlainText(event.description);
     if (text) {
-      description = `<span style="display:block; margin-top:3px; color:#52525b; font-size:14px; font-style:italic; line-height:1.5;">${escapeHtml(
+      description = `<span style="display:block; margin-top:3px; color:#55594d; font-size:14px; line-height:1.5;">${escapeHtml(
         truncate(text, DESCRIPTION_MAX_CHARS),
       )}</span>`;
     }
   }
 
-  // A bright-accent button so featured events get a clear call to action, not
-  // just a linked title. Links to external registration when hosted elsewhere.
+  // A filled pill, like the homepage's buttons, so featured events get a clear
+  // call to action rather than a linked title alone. Links to external
+  // registration when hosted elsewhere.
+  // A booking page gets "Sign up"; our own event page, which explains how to
+  // get in (walk-in tickets at a studio, say), gets "Details".
+  const ctaLabel = eventHref(event).startsWith(NEWSLETTER_SITE_URL)
+    ? "Details"
+    : "Sign up";
   const cta = withCta
-    ? `<span style="display:block; margin-top:8px; text-align:center;"><a href="${href}" style="display:inline-block; background-color:${CTA}; color:#ffffff; text-decoration:none; font-weight:700; font-size:13px; letter-spacing:0.02em; padding:8px 16px; border-radius:4px;">Sign Up</a></span>`
+    ? `<span style="display:block; margin-top:10px;"><a href="${href}" style="display:inline-block; background-color:${CTA}; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:10px 22px; border-radius:999px;">${ctaLabel}</a></span>`
     : "";
 
   // With a CTA button present the title needn't also be a link; without one

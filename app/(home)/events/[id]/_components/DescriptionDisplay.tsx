@@ -4,6 +4,7 @@ import { FC } from "react";
 import RichTextContent, {
   isRichTextEmpty,
 } from "@/app/_components/Tiptap/RichTextContent";
+import SectionHeading from "./SectionHeading";
 
 interface DescriptionProps {
   description: string;
@@ -15,10 +16,13 @@ const DescriptionDisplay: FC<DescriptionProps> = ({ description }) => {
   }
 
   return (
-    <div className="mb-6 md:mb-8">
-      <h2 className="text-2xl font-bold mb-3">About this event</h2>
-      <RichTextContent content={description} />
-    </div>
+    <section>
+      <SectionHeading>About this event</SectionHeading>
+      <RichTextContent
+        content={description}
+        className="max-w-[62ch] text-[17px] text-ink-muted [&_a]:text-moss [&_a]:underline [&_strong]:font-semibold [&_strong]:text-ink"
+      />
+    </section>
   );
 };
 

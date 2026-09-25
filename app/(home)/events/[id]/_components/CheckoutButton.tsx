@@ -1,9 +1,9 @@
 "use client";
 
 import { FC, FormEvent, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Event, OrderType } from "@prisma/client";
 import { checkoutOrder } from "@/app/_lib/actions/order.actions";
+import { PILL } from "./styles";
 
 // No Stripe.js here on purpose. checkoutOrder redirects to Stripe's hosted
 // checkout, so the browser SDK is never used. A module-scope loadStripe() used
@@ -43,9 +43,9 @@ const CheckoutButton: FC<CheckoutProps> = ({ event, userId }) => {
 
   return (
     <form onSubmit={(e) => onCheckout(e)} method="post">
-      <Button variant="accent" type="submit" className="w-full">
-        {event.isFree ? "Get Ticket" : "Buy Ticket"}
-      </Button>
+      <button type="submit" className={PILL}>
+        {event.isFree ? "Get ticket" : "Buy ticket"}
+      </button>
     </form>
   );
 };

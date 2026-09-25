@@ -8,6 +8,12 @@ const MOSS = "#3f4a35"; // accent: links, the masthead rule, CTA fills
 const INK = "#23281f"; // headings, the wordmark, rules
 const SAND = "#ece6da"; // ground behind the white letter
 const MUTED = "#67676f"; // fine print; 4.5:1 on SAND at 12px
+const INK_MUTED = "#55594d"; // body copy, the homepage's ink-muted
+const LINE = "#c5bfae"; // hairline rules, the homepage's line
+// The homepage's faces, each with a fallback: Apple Mail and iOS load the
+// Google Fonts link in <head>, Gmail and Outlook drop it and use the next name.
+const SERIF = "'Cormorant Garamond', Georgia, 'Times New Roman', serif";
+const SANS = "Karla, Helvetica, Arial, sans-serif";
 
 /**
  * Resend substitutes {{{contact.*}}} merge tags per-recipient only when a
@@ -231,20 +237,19 @@ export function renderNewsletterHtml({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   body { margin: 0; padding: 0; background-color: ${SAND}; }
   .content h1, .content h2, .content h3 {
-    font-family: Helvetica, Arial, sans-serif;
+    font-family: ${SERIF};
     color: ${INK};
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    line-height: 1.25;
-    margin: 26px 0 12px;
+    font-weight: 500;
+    line-height: 1.15;
+    margin: 30px 0 12px;
   }
-  .content h1 { font-size: 24px; }
-  .content h2 { font-size: 20px; }
-  .content h3 { font-size: 16px; letter-spacing: 0.12em; }
+  .content h1 { font-size: 36px; }
+  .content h2 { font-size: 30px; }
+  .content h3 { font-size: 24px; }
   .content p { margin: 0 0 16px; }
   .content ul, .content ol { margin: 0 0 16px; padding-left: 24px; }
   .content li { margin-bottom: 6px; }
@@ -252,11 +257,11 @@ export function renderNewsletterHtml({
     border-left: 4px solid ${MOSS};
     margin: 18px 0;
     padding: 4px 0 4px 16px;
-    color: #52525b;
+    color: ${INK_MUTED};
   }
-  .content a { color: ${MOSS}; font-weight: 600; }
+  .content a { color: ${MOSS}; font-weight: 700; }
   .content img { max-width: 100%; height: auto; }
-  .content hr { border: none; border-top: 2px solid ${INK}; margin: 26px 0; }
+  .content hr { border: none; border-top: 1px solid ${LINE}; margin: 30px 0; }
 </style>
 </head>
 <body>
@@ -272,22 +277,20 @@ ${
 ${
   viewInBrowserUrl
     ? `        <tr>
-          <td style="padding: 0 8px 8px; text-align: right; font-family: Helvetica, Arial, sans-serif; font-size: 11px; line-height: 1.4;">
+          <td style="padding: 0 8px 8px; text-align: right; font-family: ${SANS}; font-size: 11px; line-height: 1.4;">
             <a href="${viewInBrowserUrl}" style="color:${MUTED}; text-decoration: underline;">View in browser</a>
           </td>
         </tr>`
     : ""
 }
         <tr>
-          <td style="background-color:#ffffff; border-top: 5px solid ${MOSS}; padding: 34px 36px 6px; text-align: center;">
-            <a href="${SITE_URL}" style="font-family: Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; font-style: italic; letter-spacing: -0.01em; color: ${INK}; text-decoration: none;">
-              aaron curtis yoga
-            </a>
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color:#ffffff; padding: 22px 36px 36px;">
-            <div class="content" style="font-family: Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #3f3f46;">
+          <td style="background-color:#ffffff; border-radius: 20px; padding: 36px 36px 40px;">
+            <div style="text-align: center; padding-bottom: 22px;">
+              <a href="${SITE_URL}" style="font-family: ${SERIF}; font-size: 28px; font-weight: 500; color: ${INK}; text-decoration: none;">
+                Aaron Curtis Yoga
+              </a>
+            </div>
+            <div class="content" style="font-family: ${SANS}; font-size: 16px; line-height: 1.6; color: ${INK_MUTED};">
               ${makeImagesEmailSafe(contentHtml)}
             </div>
           </td>
@@ -311,7 +314,7 @@ ${
           </td>
         </tr>
         <tr>
-          <td style="padding: 4px 8px 0; text-align: center; font-family: Helvetica, Arial, sans-serif; font-size: 12px; line-height: 2; color: ${MUTED};">
+          <td style="padding: 4px 8px 0; text-align: center; font-family: ${SANS}; font-size: 12px; line-height: 2; color: ${MUTED};">
             You're receiving this email because you signed up at
             <a href="${SITE_URL}" style="color:${MUTED};">aaroncurtisyoga.com</a>.
             <br>

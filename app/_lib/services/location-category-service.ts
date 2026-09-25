@@ -26,6 +26,22 @@ export class LocationCategoryService {
       location = await prisma.location.create({
         data: locationData,
       });
+    } else if (
+      location.formattedAddress !== locationData.formattedAddress ||
+      location.lat !== locationData.lat ||
+      location.lng !== locationData.lng
+    ) {
+      // The values below are the source of truth for a synced studio, so a
+      // corrected address reaches the stored row (and any duplicate rows
+      // with the same name) on the next sync.
+      await prisma.location.updateMany({
+        where: { name: cacheKey },
+        data: {
+          formattedAddress: locationData.formattedAddress,
+          lat: locationData.lat,
+          lng: locationData.lng,
+        },
+      });
     }
 
     this.locationCache.set(cacheKey, location.id);
@@ -66,9 +82,11 @@ export class LocationCategoryService {
   async getDCBPLocationId(): Promise<string> {
     return this.getLocationId({
       name: "DC Bouldering Project",
-      formattedAddress: "1432 33rd St, Washington, DC 20018",
-      lat: 38.9397,
-      lng: -76.9949,
+      // The Eckington gym. The old value here pointed at the wrong
+      // neighborhood, about three miles away.
+      formattedAddress: "1611 Eckington Pl NE #150, Washington, DC 20002",
+      lat: 38.9116,
+      lng: -77.004,
     });
   }
 
