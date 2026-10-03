@@ -90,7 +90,7 @@
 
 /* Links */
 .richTextContent :global(a) {
-  color: hsl(var(--primary));
+  color: var(--primary);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -128,17 +128,17 @@
 
 /* Blockquote */
 .richTextContent :global(blockquote) {
-  border-left: 3px solid hsl(var(--border));
+  border-left: 3px solid var(--border);
   margin: 1rem 0;
   padding-left: 1rem;
   font-style: italic;
-  color: hsl(var(--muted-foreground));
+  color: var(--muted-foreground);
 }
 
 /* Horizontal rule */
 .richTextContent :global(hr) {
   border: none;
-  border-top: 1px solid hsl(var(--border));
+  border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
 

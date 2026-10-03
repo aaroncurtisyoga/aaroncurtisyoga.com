@@ -7,9 +7,18 @@ import {
   useEditorState,
   EditorContent,
   Editor,
+  Extension,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useCallback, useMemo, useRef, memo } from "react";
+import {
+  useEffect,
+  useCallback,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  memo,
+} from "react";
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { uploadEditorImage } from "@/app/_components/Tiptap/image-upload";
@@ -20,6 +29,7 @@ import {
 } from "@/app/_components/Tiptap/paste-html";
 import styles from "@/app/_components/Tiptap/index.module.css";
 import Toolbar from "@/app/_components/Tiptap/Toolbar";
+import { Label } from "@/components/ui/label";
 
 interface TiptapProps {
   description?: string;
@@ -51,6 +61,8 @@ const Tiptap = memo(
     // Referenced from handlePaste (which is created before `editor` exists);
     // populated once the editor is ready, below.
     const editorRef = useRef<Editor | null>(null);
+    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+    const labelId = useId();
 
     const handleUpdate = useCallback(
       ({ editor }: { editor: Editor }) => {
@@ -103,43 +115,31 @@ const Tiptap = memo(
     const extensions = useMemo(
       () => [
         // StarterKit v3 already includes Link and Underline — configure
-        // Link here rather than registering it twice
+        // Link here rather than registering it twice. Nodes carry no classes:
+        // the stored HTML goes into emails and the event page, which style
+        // it themselves, and the editor styles it in index.module.css.
         StarterKit.configure({
-          bulletList: {
-            HTMLAttributes: { class: "list-disc pl-4 my-2" },
-            keepMarks: true,
-            keepAttributes: false,
-          },
-          orderedList: {
-            HTMLAttributes: { class: "list-decimal pl-4 my-2" },
-            keepMarks: true,
-            keepAttributes: false,
-          },
-          heading: {
-            levels: [1, 2, 3],
-            HTMLAttributes: {
-              class: "font-bold",
-            },
-          },
-          paragraph: {
-            HTMLAttributes: {
-              class: "my-2",
-            },
-          },
-          blockquote: {
-            HTMLAttributes: {
-              class: "border-l-4 border-border pl-4 italic my-2",
-            },
-          },
+          bulletList: { keepMarks: true, keepAttributes: false },
+          orderedList: { keepMarks: true, keepAttributes: false },
+          heading: { levels: [1, 2, 3] },
           link: {
             openOnClick: false,
             HTMLAttributes: {
-              class: "text-primary underline cursor-pointer",
               target: "_blank",
               rel: "noopener noreferrer",
             },
             shouldAutoLink: (url) => /^https?:\/\//i.test(url),
           },
+        }),
+        // ⌘K / Ctrl+K opens the link dialog, as the toolbar tooltip promises
+        Extension.create({
+          name: "linkDialogShortcut",
+          addKeyboardShortcuts: () => ({
+            "Mod-k": () => {
+              setIsLinkDialogOpen(true);
+              return true;
+            },
+          }),
         }),
         Placeholder.configure({
           placeholder,
@@ -163,9 +163,15 @@ const Tiptap = memo(
       content: initialContent,
       editorProps: {
         attributes: {
-          class: `${styles.tiptap} rounded-md border min-h-[200px] border-input p-4 focus:outline-none focus:ring-1 focus:ring-ring ${
+          class: `${styles.tiptap} rounded-md border border-input bg-background px-5 py-4 focus:outline-none focus:ring-1 focus:ring-ring ${
             errorMessage ? styles.hasError : ""
           } ${isDisabled ? styles.disabled : ""}`,
+          role: "textbox",
+          "aria-multiline": "true",
+          ...(description
+            ? { "aria-labelledby": labelId }
+            : { "aria-label": placeholder }),
+          ...(errorMessage ? { "aria-invalid": "true" } : {}),
         },
         // Render pasted HTML *source* (e.g. AI-generated markup copied as text)
         // as formatted content instead of literal tags. Skipped inside code
@@ -276,15 +282,24 @@ const Tiptap = memo(
     if (!editor) {
       return (
         <div
-          className={`min-h-[200px] rounded-md border border-input p-4 ${styles.editorContainer}`}
+          className={`min-h-[240px] rounded-md border border-input ${styles.editorContainer}`}
         />
       );
     }
 
     return (
       <div className={styles.editorContainer}>
-        {description && <div className={styles.description}>{description}</div>}
-        <Toolbar editor={editor} isDisabled={isDisabled} />
+        {description && (
+          <Label id={labelId} className="mb-2">
+            {description}
+          </Label>
+        )}
+        <Toolbar
+          editor={editor}
+          isDisabled={isDisabled}
+          isLinkDialogOpen={isLinkDialogOpen}
+          onLinkDialogOpenChange={setIsLinkDialogOpen}
+        />
         <EditorContent editor={editor} />
         <div className={styles.footer}>
           {errorMessage && (
