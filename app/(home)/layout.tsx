@@ -22,7 +22,7 @@ export default function HomeLayout({ children }: { children: ReactNode }) {
       <style href="home-sand-surface" precedence="high">
         {"html,body{background-color:#ece6da}"}
       </style>
-      <div className="min-h-dvh overflow-hidden bg-sand font-karla text-ink leading-[normal]">
+      <div className="min-h-dvh overflow-clip bg-sand font-karla text-ink leading-[normal]">
         <HomeNav />
         <main>{children}</main>
         <HomeFooter />

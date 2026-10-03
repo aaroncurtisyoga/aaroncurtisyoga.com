@@ -10,16 +10,16 @@ html {
   background-color: #ffffff;
 }
 
-/* Prevent horizontal overflow on mobile */
+/* Prevent horizontal overflow on mobile. clip, not hidden: hidden on both
+   html and body turns body into its own scroll container, and every
+   position: sticky element on the site then sticks to a box that never
+   scrolls, so none of them stick. (An older blanket `* { max-width: 100vw }`
+   rule is gone too: it overrode every Tailwind max-w-* utility.) */
 html,
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100%;
 }
-
-/* Horizontal overflow is prevented by overflow-x: hidden on html/body above.
-   (A previous blanket `* { max-width: 100vw }` rule lived here — removed because
-   it overrode every Tailwind max-w-* utility.) */
 
 /* Prevent any form elements from overflowing */
 form,
@@ -37,40 +37,7 @@ textarea {
   min-height: 0;
 }
 
-/* Fix for images that might overflow */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-@media screen and (min-width: 768px) {
-  .event-hero {
-    background-color: #fff;
-    border-radius: 16px;
-    font-size: 0;
-    margin: 0 auto;
-    max-height: 50vw;
-    max-width: 1200px;
-    overflow: hidden;
-    position: relative;
-    text-align: center;
-  }
-}
-
-@media screen and (min-width: 1200px) {
-  .event-hero-wrapper {
-    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg width='1676' height='430' viewBox='0 0 1676 430' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_3405_50198)'%3E%3Cpath d='M1669.31 -124.702C1704.63 -198.281 1599.75 -278.89 1440.21 -219.509C1280.67 -160.128 1138.67 -174.472 940.588 -234.668C588.163 -341.792 438.492 -309.897 215.804 -220.763C150.423 -195.199 15.9418 -122.33 0.814447 -35.3897C-18.0424 73.26 298.334 62.7189 143.288 203.358C-11.7568 343.996 26.7216 552.457 835.628 313.658C939.215 283.079 1109.58 269.122 1259.68 366.729C1409.78 464.336 1549.16 434.834 1602.55 362.937C1716.96 208.836 1609.92 -1.08292 1669.31 -124.702Z' fill='%23EDF1FC'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_3405_50198'%3E%3Crect width='1676' height='430' fill='white'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E");
-    padding-top: 20px;
-    background-position: top;
-    background-repeat: no-repeat;
-  }
-}
-
 @layer utilities {
-  #offering a {
-    @apply border-b border-dotted border-black hover:border-solid italic;
-  }
-
   .wrapper {
     @apply w-full max-w-screen-2xl lg:mx-auto p-4 md:p-6;
     box-sizing: border-box;
@@ -88,23 +55,6 @@ img {
 
   .error-subHeadline {
     @apply text-xl md:text-2xl text-gray-600;
-  }
-
-  .navbar-menu-item {
-    @apply py-3 px-4 w-full text-right border-b border-gray-400 focus:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary;
-  }
-
-  .header-link {
-    @apply text-gray-700 hover:text-slate-800 relative transition-all duration-200 ease-out;
-  }
-
-  .header-link::after {
-    content: "";
-    @apply absolute -bottom-1 left-0 w-0 h-0.5 bg-cta transition-all duration-300 ease-out;
-  }
-
-  .header-link:hover::after {
-    @apply w-full;
   }
 }
 
@@ -146,18 +96,7 @@ img {
   box-shadow: none !important;
 }
 
-/* Mobile menu animations */
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
+/* Staggered entrance for the mobile menu links (MobileNavLinks) */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -166,14 +105,6 @@ img {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* Enhanced tap target for mobile */
-@media (max-width: 640px) {
-  .navbar-menu-item a,
-  .navbar-menu-item button {
-    min-height: 48px;
   }
 }
 
