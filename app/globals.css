@@ -4,6 +4,19 @@
 
 @config "../tailwind.config.js";
 
+/* Tailwind 4 draws a bare `border` (and `divide-*`) in currentColor, where
+   Tailwind 3 used a light gray. Without this, every card, popover, menu and
+   calendar divider that doesn't name a color gets a near-black line. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border, currentColor);
+  }
+}
+
 /* PWA safe area support — handles iPhone notch, Dynamic Island, home indicator */
 /* The background color behind the status bar / home indicator areas */
 html {
