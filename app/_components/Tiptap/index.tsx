@@ -29,6 +29,10 @@ import {
 } from "@/app/_components/Tiptap/paste-html";
 import styles from "@/app/_components/Tiptap/index.module.css";
 import Toolbar from "@/app/_components/Tiptap/Toolbar";
+import {
+  ImageBubble,
+  LinkBubble,
+} from "@/app/_components/Tiptap/EditorBubbles";
 import { Label } from "@/components/ui/label";
 
 interface TiptapProps {
@@ -44,6 +48,41 @@ interface TiptapProps {
   /** Registers the image node + upload-on-drop/paste. Keep constant per mount. */
   enableImages?: boolean;
 }
+
+/**
+ * Rendered only once the editor exists. Reading the counts in the parent,
+ * which first renders before the editor does, left them at 0 for content
+ * that was there on load until the first keystroke.
+ */
+const WordCount = ({
+  editor,
+  maxLength,
+}: {
+  editor: Editor;
+  maxLength?: number;
+}) => {
+  const { characters, words } = useEditorState({
+    editor,
+    selector: (ctx) => ({
+      characters: ctx.editor.storage.characterCount.characters(),
+      words: ctx.editor.storage.characterCount.words(),
+    }),
+  });
+
+  return (
+    <div className={styles.characterCount}>
+      {words} {words === 1 ? "word" : "words"}
+      {maxLength ? (
+        <span className={characters > maxLength ? styles.overLimit : undefined}>
+          {" "}
+          · {characters}/{maxLength} characters
+        </span>
+      ) : (
+        <span> · {characters} characters</span>
+      )}
+    </div>
+  );
+};
 
 const Tiptap = memo(
   ({
@@ -89,10 +128,9 @@ const Tiptap = memo(
         .then((url) => {
           const activeEditor = editorRef.current;
           if (!activeEditor) return;
-          const node = {
-            type: "image",
-            attrs: { src: url, alt: file.name.replace(/\.[^.]+$/, "") },
-          };
+          // No alt from the filename: "IMG_4021" is what a reader would see
+          // when their email app blocks images. The image's card asks for one.
+          const node = { type: "image", attrs: { src: url, alt: "" } };
           if (pos !== undefined) {
             // The document may have changed (or shrunk) during the upload —
             // clamp so a stale drop position can't throw out of range.
@@ -237,14 +275,6 @@ const Tiptap = memo(
       editable: !isDisabled,
     });
 
-    const counts = useEditorState({
-      editor,
-      selector: (ctx) => ({
-        characters: ctx.editor?.storage.characterCount.characters() ?? 0,
-        words: ctx.editor?.storage.characterCount.words() ?? 0,
-      }),
-    });
-
     // Sync editable state when isDisabled changes. emitUpdate: false —
     // otherwise this fires onChange on mount and dirties a pristine form
     useEffect(() => {
@@ -276,9 +306,6 @@ const Tiptap = memo(
       }
     }, [initialContent, editor]);
 
-    const characterCount = counts?.characters ?? 0;
-    const wordCount = counts?.words ?? 0;
-
     if (!editor) {
       return (
         <div
@@ -301,25 +328,17 @@ const Tiptap = memo(
           onLinkDialogOpenChange={setIsLinkDialogOpen}
         />
         <EditorContent editor={editor} />
+        <LinkBubble
+          editor={editor}
+          onEditLink={() => setIsLinkDialogOpen(true)}
+        />
+        {enableImages && <ImageBubble editor={editor} />}
         <div className={styles.footer}>
           {errorMessage && (
             <p className={styles.errorMessage}>{errorMessage}</p>
           )}
           {showCharacterCount && (
-            <div className={styles.characterCount}>
-              {wordCount} {wordCount === 1 ? "word" : "words"}
-              {maxLength && (
-                <span
-                  className={
-                    characterCount > maxLength ? styles.overLimit : undefined
-                  }
-                >
-                  {" "}
-                  · {characterCount}/{maxLength} characters
-                </span>
-              )}
-              {!maxLength && <span> · {characterCount} characters</span>}
-            </div>
+            <WordCount editor={editor} maxLength={maxLength} />
           )}
         </div>
       </div>

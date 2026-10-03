@@ -92,6 +92,19 @@ export function findNewsletterContentIssues(
     }
   }
 
+  // Alt text is what shows in place of an image when an email app blocks
+  // images, which several do by default
+  const imagesWithoutAlt = (html.match(/<img\b[^>]*>/gi) ?? []).filter(
+    (tag) => !/\balt\s*=\s*("\s*\S[^"]*"|'\s*\S[^']*')/i.test(tag),
+  ).length;
+  if (imagesWithoutAlt > 0) {
+    warnings.push(
+      imagesWithoutAlt === 1
+        ? "an image has no alt text (click it in the editor to add a short description)"
+        : `${imagesWithoutAlt} images have no alt text (click each in the editor to add a short description)`,
+    );
+  }
+
   const tagCandidates = new Set(text.match(/\{\{+[^{}]*\}\}+/g) ?? []);
   for (const candidate of tagCandidates) {
     if (!VALID_MERGE_TAG.test(candidate)) {
