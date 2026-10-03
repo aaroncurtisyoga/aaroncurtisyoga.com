@@ -25,6 +25,7 @@ import StartDatePickerInput from "@/app/admin/events/_components/EventForm/Field
 import EndDatePickerInput from "@/app/admin/events/_components/EventForm/Fields/EndDatePickerInput";
 import DescriptionRichTextEditor from "@/app/admin/events/_components/EventForm/Fields/DescriptionRichTextEditor";
 import ImagePicker from "@/app/admin/events/_components/EventForm/Fields/ImagePicker";
+import { endForNewStart } from "@/app/admin/events/_components/EventForm/Fields/end-for-new-start";
 
 export default function EditEventPage() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function EditEventPage() {
     control,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     reset,
     formState: { errors },
@@ -49,7 +51,6 @@ export default function EditEventPage() {
 
   const isHostedExternally = watch("isHostedExternally");
   const isFree = watch("isFree");
-  const endDateTime = watch("endDateTime");
 
   // Fetch event data on mount
   useEffect(() => {
@@ -115,23 +116,23 @@ export default function EditEventPage() {
     [setValue],
   );
 
+  // Moving the start moves the end with it, keeping the event's length
   const handleStartDateChange = useCallback(
-    (newStartDate: any) => {
-      setValue("startDateTime", newStartDate);
-
-      // Auto-adjust end date if it's before start date
-      if (newStartDate && endDateTime) {
-        const startTime =
-          newStartDate instanceof Date ? newStartDate : new Date(newStartDate);
-        const endTime =
-          endDateTime instanceof Date ? endDateTime : new Date(endDateTime);
-
-        if (startTime >= endTime) {
-          setValue("endDateTime", new Date(startTime.getTime() + 3600000));
-        }
+    (newStartDate: Date | undefined) => {
+      const oldStart = getValues("startDateTime");
+      // This replaces the field's own onChange, so it has to mark the form
+      // dirty itself, or "Update now" stays disabled after a time change
+      const options = { shouldDirty: true, shouldValidate: true };
+      setValue("startDateTime", newStartDate, options);
+      if (newStartDate) {
+        setValue(
+          "endDateTime",
+          endForNewStart(newStartDate, oldStart, getValues("endDateTime")),
+          options,
+        );
       }
     },
-    [setValue, endDateTime],
+    [setValue, getValues],
   );
 
   const onSubmit = async (data: EventFormValues) => {

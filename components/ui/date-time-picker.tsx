@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { CalendarIcon } from "lucide-react";
 
 import { cn } from "@/app/_lib/utils";
@@ -14,6 +15,11 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+// Every date on the site is shown in Eastern time (see formatDateTime), so the
+// picker reads and writes Eastern wall-clock time too, whatever zone the
+// browser is in. 8:00 PM here always means 8:00 PM in New York.
+const TIME_ZONE = "America/New_York";
 
 interface DateTimePickerProps {
   value?: Date;
@@ -29,6 +35,21 @@ interface DateTimePickerProps {
   granularity?: "day" | "minute";
 }
 
+/** The instant for a wall-clock time in Eastern on `day`'s Eastern date. */
+const easternInstant = (day: Date, hours: number, minutes: number): Date => {
+  const d = new TZDate(day, TIME_ZONE);
+  const zoned = new TZDate(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    hours,
+    minutes,
+    TIME_ZONE,
+  );
+  // Hand the form a plain Date, not the TZDate subclass
+  return new Date(zoned.getTime());
+};
+
 export function DateTimePicker({
   value,
   onChange,
@@ -43,48 +64,53 @@ export function DateTimePicker({
   granularity = "minute",
 }: DateTimePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const id = React.useId();
+  const withTime = granularity === "minute";
 
-  const hours = value ? value.getHours() : 12;
-  const minutes = value ? value.getMinutes() : 0;
+  // TZDate's getters, and date-fns format, read the Eastern fields
+  const eastern = value ? new TZDate(value, TIME_ZONE) : undefined;
 
   const handleDateSelect = (day: Date | undefined) => {
     if (!day) {
       onChange?.(undefined);
       return;
     }
-    // Preserve existing time when selecting a new date
-    const newDate = new Date(day);
-    if (value) {
-      newDate.setHours(value.getHours(), value.getMinutes(), 0, 0);
-    } else {
-      newDate.setHours(12, 0, 0, 0);
-    }
-    onChange?.(newDate);
+    // Keep the time already set when moving to another day
+    onChange?.(
+      easternInstant(
+        day,
+        eastern ? eastern.getHours() : 12,
+        eastern ? eastern.getMinutes() : 0,
+      ),
+    );
+    // With no time to set, picking the day is the whole job.
+    if (!withTime) setOpen(false);
   };
 
-  const handleTimeChange = (type: "hours" | "minutes", val: string) => {
-    const num = parseInt(val, 10);
-    if (isNaN(num)) return;
-    const date = value ? new Date(value) : new Date();
-    if (type === "hours") {
-      date.setHours(Math.max(0, Math.min(23, num)));
-    } else {
-      date.setMinutes(Math.max(0, Math.min(59, num)));
-    }
-    date.setSeconds(0, 0);
-    onChange?.(date);
+  // A native time input reports "HH:mm", or "" while a segment is still blank.
+  const handleTimeChange = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
+    onChange?.(easternInstant(value ?? new Date(), hours, minutes));
   };
 
-  const displayValue = value
-    ? granularity === "minute"
-      ? format(value, "MMM d, yyyy h:mm a")
-      : format(value, "MMM d, yyyy")
+  const displayValue = eastern
+    ? withTime
+      ? `${format(eastern, "MMM d, yyyy h:mm a")} ET`
+      : format(eastern, "MMM d, yyyy")
     : undefined;
+
+  // Compared by Eastern calendar day, so a minDate of "now" still leaves
+  // today selectable.
+  const disabledDays = [
+    ...(minDate ? [{ before: new TZDate(minDate, TIME_ZONE) }] : []),
+    ...(maxDate ? [{ after: new TZDate(maxDate, TIME_ZONE) }] : []),
+  ];
 
   return (
     <div className={cn("space-y-2", className)}>
       {label && (
-        <Label className={cn(error && "text-destructive")}>
+        <Label htmlFor={id} className={cn(error && "text-destructive")}>
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </Label>
@@ -92,8 +118,10 @@ export function DateTimePicker({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             disabled={disabled}
+            aria-invalid={error ? true : undefined}
             className={cn(
               "w-full justify-start text-left font-normal",
               !value && "text-muted-foreground",
@@ -107,48 +135,24 @@ export function DateTimePicker({
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
-            selected={value}
+            timeZone={TIME_ZONE}
+            selected={eastern}
             onSelect={handleDateSelect}
-            disabled={
-              minDate || maxDate
-                ? (date) => {
-                    // Compare against copies — setHours mutates, and these are
-                    // the caller's Date objects.
-                    if (minDate) {
-                      const min = new Date(minDate);
-                      min.setHours(0, 0, 0, 0);
-                      if (date < min) return true;
-                    }
-                    if (maxDate) {
-                      const max = new Date(maxDate);
-                      max.setHours(23, 59, 59, 999);
-                      if (date > max) return true;
-                    }
-                    return false;
-                  }
-                : undefined
-            }
-            defaultMonth={value}
+            disabled={disabledDays}
+            defaultMonth={eastern}
+            autoFocus
           />
-          {granularity === "minute" && (
-            <div className="border-t p-3 flex items-center gap-2">
-              <Label className="text-xs text-muted-foreground">Time:</Label>
+          {withTime && (
+            <div className="flex items-center justify-between gap-3 border-t p-3">
+              <Label htmlFor={`${id}-time`} className="text-muted-foreground">
+                Time (ET)
+              </Label>
               <Input
-                type="number"
-                min={0}
-                max={23}
-                value={hours.toString().padStart(2, "0")}
-                onChange={(e) => handleTimeChange("hours", e.target.value)}
-                className="w-16 h-8 text-center"
-              />
-              <span className="text-muted-foreground">:</span>
-              <Input
-                type="number"
-                min={0}
-                max={59}
-                value={minutes.toString().padStart(2, "0")}
-                onChange={(e) => handleTimeChange("minutes", e.target.value)}
-                className="w-16 h-8 text-center"
+                id={`${id}-time`}
+                type="time"
+                value={eastern ? format(eastern, "HH:mm") : "12:00"}
+                onChange={(e) => handleTimeChange(e.target.value)}
+                className="h-8 w-auto"
               />
             </div>
           )}

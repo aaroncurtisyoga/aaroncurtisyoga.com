@@ -12,7 +12,7 @@ interface StartDatePickerInputProps {
   control: Control<EventFormValues>;
   errors: FieldErrors<EventFormValues>;
   isSubmitting: boolean;
-  onChange?: (value: any) => void;
+  onChange?: (value: Date | undefined) => void;
   rules?: RegisterOptions<EventFormValues, "startDateTime">;
 }
 

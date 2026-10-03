@@ -20,6 +20,7 @@ import StartDatePickerInput from "@/app/admin/events/_components/EventForm/Field
 import TitleInput from "@/app/admin/events/_components/EventForm/Fields/TitleInput";
 import PriceInput from "@/app/admin/events/_components/EventForm/Fields/PriceInput";
 import ExternalHostingInput from "@/app/admin/events/_components/EventForm/Fields/ExternalHostingInput";
+import { endForNewStart } from "@/app/admin/events/_components/EventForm/Fields/end-for-new-start";
 
 const BasicInfo: FC = () => {
   const router = useRouter();
@@ -28,14 +29,11 @@ const BasicInfo: FC = () => {
     control,
     handleSubmit,
     setValue,
+    getValues,
     reset,
-    watch,
     formState: { errors, isSubmitting, isDirty },
   } = useFormContext<EventFormValues>();
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Watch only specific fields we need instead of all values
-  const endDateTime = watch("endDateTime");
 
   const setLocationValueInReactHookForm = useCallback(
     (placeDetails: PlaceDetails) => {
@@ -50,27 +48,23 @@ const BasicInfo: FC = () => {
     [setValue],
   );
 
-  // Handle start date change and auto-update end date
+  // Moving the start moves the end with it, keeping the event's length
   const handleStartDateChange = useCallback(
-    (newStartDate: any) => {
-      setValue("startDateTime", newStartDate);
-
-      const currentEndDate = endDateTime;
-      if (newStartDate && currentEndDate) {
-        const startTime =
-          newStartDate instanceof Date ? newStartDate : new Date(newStartDate);
-        const endTime =
-          currentEndDate instanceof Date
-            ? currentEndDate
-            : new Date(currentEndDate);
-
-        if (startTime >= endTime) {
-          const newEndTime = new Date(startTime.getTime() + 3600000);
-          setValue("endDateTime", newEndTime);
-        }
+    (newStartDate: Date | undefined) => {
+      const oldStart = getValues("startDateTime");
+      // This replaces the field's own onChange, so it has to mark the form
+      // dirty itself, or "Update now" stays disabled after a time change
+      const options = { shouldDirty: true, shouldValidate: true };
+      setValue("startDateTime", newStartDate, options);
+      if (newStartDate) {
+        setValue(
+          "endDateTime",
+          endForNewStart(newStartDate, oldStart, getValues("endDateTime")),
+          options,
+        );
       }
     },
-    [setValue, endDateTime],
+    [setValue, getValues],
   );
 
   // No need for initialization useEffect - handled in EventFormProvider
