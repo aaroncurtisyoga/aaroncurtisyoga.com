@@ -67,8 +67,12 @@ export function DateTimePicker({
   const id = React.useId();
   const withTime = granularity === "minute";
 
-  // TZDate's getters, and date-fns format, read the Eastern fields
-  const eastern = value ? new TZDate(value, TIME_ZONE) : undefined;
+  // TZDate's getters, and date-fns format, read the Eastern fields. An invalid
+  // Date (say, from a bad saved draft) shows as empty rather than throwing.
+  const eastern =
+    value && !Number.isNaN(value.getTime())
+      ? new TZDate(value, TIME_ZONE)
+      : undefined;
 
   const handleDateSelect = (day: Date | undefined) => {
     if (!day) {
@@ -87,11 +91,13 @@ export function DateTimePicker({
     if (!withTime) setOpen(false);
   };
 
-  // A native time input reports "HH:mm", or "" while a segment is still blank.
+  // A native time input reports "HH:mm" (sometimes with seconds), or "" while
+  // a segment is still blank mid-typing. Ignore anything incomplete: an empty
+  // string would otherwise become an Invalid Date and crash the form.
   const handleTimeChange = (time: string) => {
-    const [hours, minutes] = time.split(":").map(Number);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return;
-    onChange?.(easternInstant(value ?? new Date(), hours, minutes));
+    const match = /^(\d{2}):(\d{2})/.exec(time);
+    if (!match) return;
+    onChange?.(easternInstant(eastern ?? new Date(), +match[1], +match[2]));
   };
 
   const displayValue = eastern
@@ -124,7 +130,7 @@ export function DateTimePicker({
             aria-invalid={error ? true : undefined}
             className={cn(
               "w-full justify-start text-left font-normal",
-              !value && "text-muted-foreground",
+              !eastern && "text-muted-foreground",
               error && "border-destructive",
             )}
           >
