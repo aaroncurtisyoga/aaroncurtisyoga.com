@@ -177,12 +177,12 @@ export class BrightBearCrawler {
         console.log(`Found ${classElements.length} class articles`);
 
         classElements.forEach((article: any) => {
-          // Check if the class is cancelled
-          // Cancelled classes have "cancel" in their text/HTML or disabled book buttons
+          // Check if the class is cancelled.
+          // Match only the past-tense word ("cancelled" / "canceled") so we don't
+          // accidentally trip on things like "Cancellation policy" links or
+          // "Cancel booking" tooltips that appear on active class cards.
           const fullText = article.textContent?.toLowerCase() || "";
-          const outerHTML = article.outerHTML?.toLowerCase() || "";
-          const isCancelled =
-            fullText.includes("cancel") || outerHTML.includes("cancel");
+          const isCancelled = /\bcancell?ed\b/.test(fullText);
 
           // Also check if book button is disabled (another indicator of cancelled class)
           const bookButton = article.querySelector('a[href*="momence.com/s/"]');
