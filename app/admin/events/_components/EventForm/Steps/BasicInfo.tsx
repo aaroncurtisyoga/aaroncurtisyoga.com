@@ -97,23 +97,15 @@ const BasicInfo: FC = () => {
   };
 
   const onSubmit = async (data: EventFormValues) => {
-    // Go to next step - dynamic based on mode and hosting type
+    // Every event goes through the details step, externally hosted ones
+    // included: their description is how a walk-in workshop tells people how
+    // to get in, and it's the lead line on the homepage's featured card.
     const eventId = data.id;
-
-    // Skip details step for externally hosted events since all required info is already collected
-    if (data.isHostedExternally) {
-      const nextStepUrl =
-        mode === "edit"
-          ? `/admin/events/${eventId}/edit/submit`
-          : `/admin/events/create/submit`;
-      router.push(nextStepUrl);
-    } else {
-      const nextStepUrl =
-        mode === "edit"
-          ? `/admin/events/${eventId}/edit/details`
-          : `/admin/events/create/details`;
-      router.push(nextStepUrl);
-    }
+    router.push(
+      mode === "edit"
+        ? `/admin/events/${eventId}/edit/details`
+        : `/admin/events/create/details`,
+    );
   };
 
   return (

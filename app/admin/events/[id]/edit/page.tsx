@@ -329,10 +329,9 @@ export default function EditEventPage() {
               <Controller
                 name="externalRegistrationUrl"
                 control={control}
+                // Optional: a walk-in workshop has no sign-up page, and its
+                // description says how to get in instead.
                 rules={{
-                  required: isHostedExternally
-                    ? "Registration URL is required for external events"
-                    : false,
                   pattern: {
                     value: /^https?:\/\/.+/,
                     message:
@@ -343,7 +342,6 @@ export default function EditEventPage() {
                   <FormField
                     label="External Registration URL"
                     error={errors.externalRegistrationUrl?.message}
-                    required
                   >
                     <Input
                       placeholder="https://..."
@@ -396,22 +394,23 @@ export default function EditEventPage() {
                   )}
                 />
               </div>
-
-              {/* Image */}
-              <ImagePicker
-                errors={errors}
-                setValue={setValue}
-                control={control}
-              />
-
-              {/* Description */}
-              <DescriptionRichTextEditor
-                control={control}
-                errors={errors}
-                isDisabled={isSubmitting}
-              />
             </div>
           )}
+
+          {/* Image and description apply to every event, however people
+              sign up. */}
+          <div className="space-y-6">
+            <ImagePicker
+              errors={errors}
+              setValue={setValue}
+              control={control}
+            />
+            <DescriptionRichTextEditor
+              control={control}
+              errors={errors}
+              isDisabled={isSubmitting}
+            />
+          </div>
 
           {/* Actions */}
           <div className="flex justify-between pt-4 border-t">
