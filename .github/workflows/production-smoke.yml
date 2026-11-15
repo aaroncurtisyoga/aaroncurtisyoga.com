@@ -6,7 +6,7 @@ on:
 jobs:
   smoke-test:
     name: Production Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.58 has no browser build for 26.04, which ubuntu-latest now points at
     # Only run on successful production deployments
     if: >
       github.event.deployment_status.state == 'success' &&

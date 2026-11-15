@@ -7,10 +7,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  deployments: read
+
 jobs:
   e2e-smoke-test:
     name: Landing Page Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.58 has no browser build for 26.04, which ubuntu-latest now points at
 
     steps:
       - name: Checkout code
@@ -40,10 +44,42 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      - name: Run smoke test against dev preview
+      # Vercel records a GitHub deployment for every commit it builds. Wait for
+      # the one matching this commit and test that URL, so the check exercises
+      # the code in the PR.
+      - name: Find the Vercel deployment for this commit
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          api="repos/$GITHUB_REPOSITORY/deployments"
+          for attempt in $(seq 1 40); do
+            id=$(gh api "$api?sha=$SHA" --jq '.[0].id // empty')
+            if [ -n "$id" ]; then
+              state=$(gh api "$api/$id/statuses" --jq '.[0].state // empty')
+              url=$(gh api "$api/$id/statuses" --jq '.[0].environment_url // empty')
+              echo "Attempt $attempt: deployment $id is ${state:-pending}"
+              if [ "$state" = "success" ] && [ -n "$url" ]; then
+                echo "url=$url" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              if [ "$state" = "failure" ] || [ "$state" = "error" ]; then
+                echo "::error::The Vercel deployment for $SHA failed, so there is nothing to test."
+                exit 1
+              fi
+            else
+              echo "Attempt $attempt: no deployment for $SHA yet"
+            fi
+            sleep 15
+          done
+          echo "::error::No successful Vercel deployment for $SHA after 10 minutes."
+          exit 1
+
+      - name: Run smoke test against the deployment
         run: npm run test:e2e -- --project=chromium e2e/tests/homepage.spec.ts
         env:
-          NEXT_PUBLIC_APP_URL: https://acy-git-dev-aaron-curtis-yoga.vercel.app
+          NEXT_PUBLIC_APP_URL: ${{ steps.preview.outputs.url }}
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
