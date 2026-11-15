@@ -32,7 +32,6 @@ const AdminNewsletterPage: FC = () => {
   return (
     <AdminPage
       title="Newsletter"
-      width="narrow"
       actions={
         <Button className="font-medium" asChild>
           <Link href="/admin/newsletter/create">
