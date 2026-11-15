@@ -144,6 +144,18 @@
   outline-offset: 2px;
 }
 
+/* A linked image is wrapped in its <a>, which is the node that gets selected */
+.tiptap :global(a:has(> img)) {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tiptap :global(a.ProseMirror-selectednode > img) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 /* Placeholder */
 .tiptap :global(.is-editor-empty:first-child::before) {
   color: var(--muted-foreground);

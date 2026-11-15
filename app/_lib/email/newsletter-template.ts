@@ -176,6 +176,17 @@ export function renderNewsletterText({
       (_match, hrefDq, hrefSq, label) => {
         const href = (hrefDq ?? hrefSq ?? "").trim();
         const labelText = label.replace(/<[^>]*>/g, "").trim();
+        // A linked image (a video still, say) has no text of its own. Use
+        // its alt text as the label, on its own line, unless the same link
+        // appears again as text, the way the video card repeats it underneath.
+        if (!labelText && /<img\b/i.test(label)) {
+          const repeated =
+            href !== "" &&
+            contentHtml.split(`href="${hrefDq ?? hrefSq ?? ""}"`).length > 2;
+          if (repeated || !href) return "";
+          const alt = label.match(/\balt\s*=\s*"([^"]*)"/i)?.[1]?.trim();
+          return `${alt ? `${alt} (${href})` : href}\n\n`;
+        }
         if (!labelText) return href;
         if (!href || labelText === href) return labelText;
         return `${labelText} (${href})`;
