@@ -3,6 +3,9 @@
 import { FC } from "react";
 import { toast } from "sonner";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Copy,
   MoreHorizontal,
   Pencil,
@@ -28,11 +31,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Subscriber } from "@/app/_lib/actions/newsletter.actions";
-import { formatDateTime } from "@/app/_lib/utils";
+import { cn, formatDateTime } from "@/app/_lib/utils";
+
+export type SubscriberSortKey = "email" | "name" | "status" | "added";
+
+export interface SubscriberSort {
+  key: SubscriberSortKey;
+  direction: "asc" | "desc";
+}
+
+const sortableColumns: { key: SubscriberSortKey; label: string }[] = [
+  { key: "email", label: "Email" },
+  { key: "name", label: "Name" },
+  { key: "status", label: "Status" },
+  { key: "added", label: "Added" },
+];
 
 interface SubscribersTableProps {
   subscribers: Subscriber[];
   busyId: string | null;
+  /** The active sort, or null for the list's own order. */
+  sort: SubscriberSort | null;
+  onSort: (key: SubscriberSortKey) => void;
   onEdit: (subscriber: Subscriber) => void;
   onToggle: (subscriber: Subscriber) => void;
   onDelete: (subscriber: Subscriber) => void;
@@ -44,6 +64,8 @@ const fullName = (subscriber: Subscriber) =>
 const SubscribersTable: FC<SubscribersTableProps> = ({
   subscribers,
   busyId,
+  sort,
+  onSort,
   onEdit,
   onToggle,
   onDelete,
@@ -142,17 +164,51 @@ const SubscribersTable: FC<SubscribersTableProps> = ({
         <Table aria-label="Newsletter subscribers">
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Added</TableHead>
+              {sortableColumns.map(({ key, label }) => {
+                const active = sort?.key === key;
+                const Icon = !active
+                  ? ArrowUpDown
+                  : sort.direction === "asc"
+                    ? ArrowUp
+                    : ArrowDown;
+                return (
+                  <TableHead
+                    key={key}
+                    aria-sort={
+                      !active
+                        ? "none"
+                        : sort.direction === "asc"
+                          ? "ascending"
+                          : "descending"
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onSort(key)}
+                      className={cn(
+                        "-ml-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 font-medium transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        active && "text-foreground",
+                      )}
+                    >
+                      {label}
+                      <Icon
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          !active && "text-muted-foreground/60",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </TableHead>
+                );
+              })}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {subscribers.map((subscriber) => (
               <TableRow key={subscriber.id}>
-                <TableCell className="max-w-[280px] truncate font-medium">
+                <TableCell className="max-w-md truncate font-medium">
                   {subscriber.email}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
