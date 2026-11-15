@@ -7,7 +7,7 @@ import SubscribersManager from "@/app/admin/newsletter/_components/SubscribersMa
 
 const SubscribersPage: FC = () => {
   return (
-    <AdminPage title="Newsletter" width="narrow">
+    <AdminPage title="Newsletter">
       <NewsletterNav />
       <SubscribersManager />
     </AdminPage>

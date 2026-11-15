@@ -18,7 +18,10 @@ import AddSubscriberDialog from "@/app/admin/newsletter/_components/AddSubscribe
 import EditSubscriberDialog, {
   type SubscriberEdit,
 } from "@/app/admin/newsletter/_components/EditSubscriberDialog";
-import SubscribersTable from "@/app/admin/newsletter/_components/SubscribersTable";
+import SubscribersTable, {
+  type SubscriberSort,
+  type SubscriberSortKey,
+} from "@/app/admin/newsletter/_components/SubscribersTable";
 import {
   deleteSubscriber,
   listSubscribers,
@@ -30,6 +33,23 @@ import { cn, formatDateTime } from "@/app/_lib/utils";
 type StatusFilter = "all" | "subscribed" | "unsubscribed";
 
 const PAGE_SIZE = 25;
+
+const subscriberName = (s: Subscriber) =>
+  `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim();
+
+// Ascending comparison for each sortable column. Email breaks every tie so
+// the order is stable from one render to the next.
+const compareBy: Record<
+  SubscriberSortKey,
+  (a: Subscriber, b: Subscriber) => number
+> = {
+  email: (a, b) => a.email.localeCompare(b.email),
+  name: (a, b) => subscriberName(a).localeCompare(subscriberName(b)),
+  // Subscribed first when ascending
+  status: (a, b) => Number(a.unsubscribed) - Number(b.unsubscribed),
+  added: (a, b) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+};
 
 const statusFilters: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -54,6 +74,8 @@ const SubscribersManager: FC = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [page, setPage] = useState(1);
+  // null keeps the order Resend returns the list in
+  const [sort, setSort] = useState<SubscriberSort | null>(null);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Subscriber | null>(null);
@@ -107,6 +129,17 @@ const SubscribersManager: FC = () => {
     setPage(1);
   };
 
+  // First click sorts a column, a second click flips it. "Added" starts
+  // newest first, since that's the question it usually answers.
+  const handleSort = (key: SubscriberSortKey) => {
+    setSort((prev) =>
+      prev?.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: key === "added" ? "desc" : "asc" },
+    );
+    setPage(1);
+  };
+
   const stats = useMemo(() => {
     const subscribed = subscribers.filter((s) => !s.unsubscribed).length;
     return {
@@ -136,10 +169,26 @@ const SubscribersManager: FC = () => {
     });
   }, [subscribers, search, statusFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Sorted before paging, so a sort reorders the whole list and not just the
+  // 25 rows on screen.
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const flip = sort.direction === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      // People with no name go last in either direction
+      if (sort.key === "name") {
+        const aBlank = !subscriberName(a);
+        const bBlank = !subscriberName(b);
+        if (aBlank !== bBlank) return aBlank ? 1 : -1;
+      }
+      return compareBy[sort.key](a, b) * flip || a.email.localeCompare(b.email);
+    });
+  }, [filtered, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * PAGE_SIZE;
-  const paged = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const paged = sorted.slice(pageStart, pageStart + PAGE_SIZE);
 
   const patchSubscriber = (id: string, patch: Partial<Subscriber>) =>
     setSubscribers((prev) =>
@@ -332,6 +381,8 @@ const SubscribersManager: FC = () => {
               <SubscribersTable
                 subscribers={paged}
                 busyId={busyId}
+                sort={sort}
+                onSort={handleSort}
                 onEdit={setEditing}
                 onToggle={handleToggle}
                 onDelete={setDeleting}
