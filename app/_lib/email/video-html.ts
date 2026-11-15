@@ -8,10 +8,16 @@ import { escapeHtml } from "@/app/_lib/email/event-html";
  */
 export function videoCardHtml({
   imageUrl,
+  width,
   watchUrl,
   title,
 }: {
   imageUrl: string;
+  /**
+   * Display width in px. An explicit width keeps Outlook, which ignores
+   * max-width, from showing the still at its full 1080px or more.
+   */
+  width: number;
   watchUrl: string;
   title: string;
 }): string {
@@ -22,7 +28,7 @@ export function videoCardHtml({
   const link = `target="_blank" rel="noopener noreferrer"`;
 
   return (
-    `<a href="${href}" ${link}><img src="${escapeHtml(imageUrl)}" alt="${alt}"></a>` +
+    `<a href="${href}" ${link}><img src="${escapeHtml(imageUrl)}" alt="${alt}" width="${width}"></a>` +
     `<p><a href="${href}" ${link}><strong>Watch the video →</strong></a></p>`
   );
 }

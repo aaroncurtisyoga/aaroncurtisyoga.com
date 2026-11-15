@@ -9,6 +9,8 @@ export type VideoThumbnailResult =
   | {
       ok: true;
       imageUrl: string;
+      /** Display width in px for the <img> width attribute. */
+      width: number;
       title: string;
       watchUrl: string;
     }
@@ -16,10 +18,12 @@ export type VideoThumbnailResult =
 
 // Email can't play video, so the newsletter shows a still with a play button
 // baked in and links it to YouTube. Sized at 2x the 528px email column.
-const LANDSCAPE = { width: 1200, height: 675 };
+const LANDSCAPE = { width: 1200, height: 675, display: 528 };
 // A full 9:16 Short would run three screens tall on a phone; 4:5 keeps the
 // portrait feel at a sane height.
-const PORTRAIT = { width: 1080, height: 1350 };
+// Shown at 360px rather than the full column: full width it's 660px tall on
+// desktop and buries whatever comes after it. Phones scale it down anyway.
+const PORTRAIT = { width: 1080, height: 1350, display: 360 };
 
 const playButtonSvg = (size: number) => {
   const r = size / 2;
@@ -45,12 +49,11 @@ async function fetchImage(url: string): Promise<Buffer | null> {
  * ("oardefault"); the others are 16:9, or 4:3 with black bars that the cover
  * crop below trims off.
  */
-async function fetchBestStill(
-  id: string,
-  isShort: boolean,
-): Promise<Buffer | null> {
+async function fetchBestStill(id: string): Promise<Buffer | null> {
   const names = [
-    ...(isShort ? ["oardefault"] : []),
+    // Asked for on every video, since a Short is often shared as a plain
+    // watch link. Ordinary videos 404 here and fall through.
+    "oardefault",
     "maxresdefault",
     "sddefault",
     "hqdefault",
@@ -95,7 +98,7 @@ export async function createVideoThumbnail(
 
   try {
     const [still, title] = await Promise.all([
-      fetchBestStill(video.id, video.isShort),
+      fetchBestStill(video.id),
       fetchTitle(video.watchUrl),
     ]);
     if (!still) {
@@ -128,6 +131,7 @@ export async function createVideoThumbnail(
     return {
       ok: true,
       imageUrl: blob.url,
+      width: size.display,
       title,
       watchUrl: video.watchUrl,
     };

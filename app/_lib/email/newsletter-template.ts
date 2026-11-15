@@ -123,10 +123,12 @@ export function findNewsletterContentIssues(
  * non-Gmail accounts, some Outlooks), and a full-resolution phone photo would
  * otherwise render at native width and blow out the 600px layout. Inline
  * styles survive those clients. No width attribute on purpose: without the
- * intrinsic size we'd either upscale small images or do nothing.
+ * intrinsic size we'd either upscale small images or do nothing. (The video
+ * card knows its size and sets its own width attribute.) The rounded corners
+ * match the card the content sits in; Outlook ignores them and shows square.
  */
 function makeImagesEmailSafe(html: string): string {
-  const IMG_STYLE = "max-width:100%;height:auto;";
+  const IMG_STYLE = "max-width:100%;height:auto;border-radius:12px;";
   return html.replace(/<img\b[^>]*>/gi, (tag) => {
     const styleAttr = tag.match(/\bstyle\s*=\s*("([^"]*)"|'([^']*)')/i);
     if (!styleAttr) {
@@ -284,7 +286,7 @@ export function renderNewsletterHtml({
     color: ${INK_MUTED};
   }
   .content a { color: ${MOSS}; font-weight: 700; }
-  .content img { max-width: 100%; height: auto; }
+  .content img { max-width: 100%; height: auto; border-radius: 12px; }
   .content hr { border: none; border-top: 1px solid ${LINE}; margin: 30px 0; }
 </style>
 </head>
