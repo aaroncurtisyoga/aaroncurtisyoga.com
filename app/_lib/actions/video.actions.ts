@@ -17,13 +17,9 @@ export type VideoThumbnailResult =
   | { ok: false; error: string };
 
 // Email can't play video, so the newsletter shows a still with a play button
-// baked in and links it to YouTube. Sized at 2x the 528px email column.
-const LANDSCAPE = { width: 1200, height: 675, display: 528 };
-// A full 9:16 Short would run three screens tall on a phone; 4:5 keeps the
-// portrait feel at a sane height.
-// Shown at 360px rather than the full column: full width it's 660px tall on
-// desktop and buries whatever comes after it. Phones scale it down anyway.
-const PORTRAIT = { width: 1080, height: 1350, display: 360 };
+// baked in and links it to YouTube. Always 16:9, at 2x the 528px email
+// column, so every video reads as a video player whatever shape it was shot in.
+const FRAME = { width: 1200, height: 675, display: 528 };
 
 const playButtonSvg = (size: number) => {
   const r = size / 2;
@@ -111,14 +107,40 @@ export async function createVideoThumbnail(
 
     const meta = await sharp(still).metadata();
     const portrait = (meta.height ?? 0) > (meta.width ?? 0);
-    const size = portrait ? PORTRAIT : LANDSCAPE;
-    const buttonSize = Math.round(size.width * 0.17);
+    const playButton = {
+      input: playButtonSvg(
+        // Smaller on a portrait still, where the picture is a third the width
+        Math.round(FRAME.height * (portrait ? 0.2 : 0.27)),
+      ),
+      gravity: "centre",
+    };
 
-    const image = await sharp(still)
-      // Center crop on purpose. sharp's "attention" crop was tried and went
-      // for the busiest texture (a wall calendar) over the person.
-      .resize(size.width, size.height, { fit: "cover", position: "centre" })
-      .composite([{ input: playButtonSvg(buttonSize), gravity: "centre" }])
+    // The backdrop is the still itself, cropped to fill the frame. For a
+    // landscape video that's the whole picture. A portrait one (a Short) would
+    // lose most of itself to that crop, so it's blurred and dimmed instead and
+    // the full, uncropped still sits on top of it in the middle, the way
+    // YouTube shows a Short in its landscape player.
+    const backdrop = sharp(still).resize(FRAME.width, FRAME.height, {
+      fit: "cover",
+      position: "centre",
+    });
+
+    const layers = portrait
+      ? [
+          {
+            input: await sharp(still)
+              .resize({ height: FRAME.height })
+              .toBuffer(),
+            gravity: "centre",
+          },
+          playButton,
+        ]
+      : [playButton];
+
+    const image = await (
+      portrait ? backdrop.blur(28).modulate({ brightness: 0.55 }) : backdrop
+    )
+      .composite(layers)
       .jpeg({ quality: 82, mozjpeg: true })
       .toBuffer();
 
@@ -131,7 +153,7 @@ export async function createVideoThumbnail(
     return {
       ok: true,
       imageUrl: blob.url,
-      width: size.display,
+      width: FRAME.display,
       title,
       watchUrl: video.watchUrl,
     };
