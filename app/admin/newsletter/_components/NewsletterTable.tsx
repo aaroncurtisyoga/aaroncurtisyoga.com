@@ -220,7 +220,7 @@ const NewsletterTable: FC<NewsletterTableProps> = ({
             const performance = describePerformance(newsletter);
             return (
               <TableRow key={newsletter.id}>
-                <TableCell className="font-medium max-w-[320px] truncate">
+                <TableCell className="font-medium max-w-xl truncate">
                   <Link
                     href={`/admin/newsletter/${newsletter.id}`}
                     className="hover:text-primary transition-colors"
