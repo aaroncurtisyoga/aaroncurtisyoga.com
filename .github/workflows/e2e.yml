@@ -10,7 +10,7 @@ on:
 jobs:
   e2e-smoke-test:
     name: Landing Page Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Playwright 1.58 has no browser build for 26.04, which ubuntu-latest now points at
 
     steps:
       - name: Checkout code
