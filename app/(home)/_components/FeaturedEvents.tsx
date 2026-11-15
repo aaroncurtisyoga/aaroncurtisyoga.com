@@ -40,16 +40,20 @@ function FeaturedCard({ event }: { event: HomepageClass }) {
   const end = formatDateTime(event.endDateTime);
   const { href, external } = getEventBookingLink(event);
   // The first paragraph is the lead, set large, so put the thing people most
-  // need to know there (for a studio workshop: just show up).
+  // need to know there (for a studio workshop: just show up). A long opening
+  // paragraph is cut back to its first sentence or two and the remainder
+  // drops to body size, so the card isn't filled with display type.
   // A synced class that hasn't been given its own description carries a stock
   // line about a button on the event page. Show the card without it.
   const description = isGeneratedSyncDescription(event.description)
     ? ""
     : (event.description ?? "");
-  const [lead, ...rest] = description
+  const [first = "", ...later] = description
     .split(/<\/p>/i)
     .map(richTextToPlainText)
     .filter(Boolean);
+  const { lead, remainder } = splitLead(first);
+  const rest = [...(remainder ? [remainder] : []), ...later];
   const place = event.location?.name;
 
   return (
@@ -83,7 +87,7 @@ function FeaturedCard({ event }: { event: HomepageClass }) {
               {lead}
             </p>
           )}
-          {rest.slice(0, 2).map((paragraph) => (
+          {rest.slice(0, 4).map((paragraph) => (
             <p
               key={paragraph}
               className="mt-3 max-w-[560px] text-[clamp(16px,1.3vw,18px)] leading-[1.55] text-sand/75 text-pretty"
@@ -104,4 +108,25 @@ function FeaturedCard({ event }: { event: HomepageClass }) {
       </div>
     </article>
   );
+}
+
+const LEAD_KEEP_WHOLE = 140;
+const LEAD_MIN = 60;
+
+/**
+ * A paragraph up to LEAD_KEEP_WHOLE characters is the lead as written. A
+ * longer one gives up whole sentences until the lead reaches LEAD_MIN, so a
+ * short opener like "Not a member?" never stands alone. Sentences end at
+ * punctuation followed by a capital, which keeps "10 a.m. sharp" together.
+ */
+function splitLead(paragraph: string): { lead: string; remainder: string } {
+  if (paragraph.length <= LEAD_KEEP_WHOLE) {
+    return { lead: paragraph, remainder: "" };
+  }
+  const sentences = paragraph.split(/(?<=[.!?])\s+(?=[A-Z])/);
+  let lead = "";
+  while (sentences.length > 0 && lead.length < LEAD_MIN) {
+    lead = `${lead} ${sentences.shift()}`.trim();
+  }
+  return { lead, remainder: sentences.join(" ") };
 }
