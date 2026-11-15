@@ -68,11 +68,11 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.18",
     "googleapis": "^159.0.0",
     "lightningcss": "^1.30.1",
     "lucide-react": "^0.541.0",
-    "next": "^16.3.8",
+    "next": "^16.4.6",
     "next-themes": "^0.4.6",
     "playwright-core": "^1.56.1",
     "react": "^19.2.3",
@@ -89,7 +89,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.1.12",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.2"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@clerk/testing": "^1.13.26",
@@ -119,6 +119,9 @@
     "qs": "^6.16.0",
     "decode-uri-component": "^0.5.0",
     "effect": "^3.20.0",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
