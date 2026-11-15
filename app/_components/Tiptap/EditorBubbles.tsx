@@ -78,11 +78,40 @@ export const LinkBubble = ({ editor, onEditLink }: LinkBubbleProps) => {
   );
 };
 
+// Only http(s) links are kept; anything else clears the link.
+const toImageHref = (value: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withScheme = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  try {
+    return new URL(withScheme).toString();
+  } catch {
+    return null;
+  }
+};
+
 export const ImageBubble = ({ editor }: { editor: Editor }) => {
-  const alt = useEditorState({
+  const { alt, href } = useEditorState({
     editor,
-    selector: (ctx) => (ctx.editor.getAttributes("image").alt as string) || "",
+    selector: (ctx) => {
+      const attrs = ctx.editor.getAttributes("image");
+      return {
+        alt: (attrs.alt as string) || "",
+        href: (attrs.href as string) || "",
+      };
+    },
   });
+
+  const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "Escape") {
+      e.preventDefault();
+      // Blur first so the link field commits before focus moves on
+      e.currentTarget.blur();
+      editor.commands.focus();
+    }
+  };
 
   return (
     <BubbleMenu
@@ -92,37 +121,58 @@ export const ImageBubble = ({ editor }: { editor: Editor }) => {
       shouldShow={({ editor: e, element }) =>
         e.isEditable && e.isActive("image") && isFocusedWithin(e, element)
       }
-      className={cn(cardClass, "gap-2 p-2")}
+      className={cn(cardClass, "items-start gap-2 p-2")}
     >
-      <label className="flex items-center gap-2">
-        <span
-          className={cn(
-            "whitespace-nowrap text-xs font-medium",
-            alt ? "text-muted-foreground" : "text-destructive",
-          )}
-        >
-          {alt ? "Alt text" : "Add alt text"}
-        </span>
-        <Input
-          value={alt}
-          // Updates as you type; undo history groups the keystrokes
-          onChange={(e) =>
-            editor
-              .chain()
-              .updateAttributes("image", { alt: e.target.value })
-              .run()
-          }
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === "Escape") {
-              e.preventDefault();
-              editor.commands.focus();
+      <div className="flex flex-col gap-1.5">
+        <label className="flex items-center gap-2">
+          <span
+            className={cn(
+              "w-16 whitespace-nowrap text-xs font-medium",
+              alt ? "text-muted-foreground" : "text-destructive",
+            )}
+          >
+            {alt ? "Alt text" : "Add alt text"}
+          </span>
+          <Input
+            value={alt}
+            // Updates as you type; undo history groups the keystrokes
+            onChange={(e) =>
+              editor
+                .chain()
+                .updateAttributes("image", { alt: e.target.value })
+                .run()
             }
-          }}
-          placeholder="Describe the image"
-          className="h-8 w-60"
-          title="Shown when an email app blocks images, and read aloud by screen readers"
-        />
-      </label>
+            onKeyDown={blurOnEnter}
+            placeholder="Describe the image"
+            className="h-8 w-60"
+            title="Shown when an email app blocks images, and read aloud by screen readers"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-16 whitespace-nowrap text-xs font-medium text-muted-foreground">
+            Link
+          </span>
+          <Input
+            // Uncontrolled, and committed on blur: a half-typed URL isn't
+            // one, so it shouldn't be written to the image as you type.
+            // Keyed so it refreshes when another image is selected.
+            key={href}
+            defaultValue={href}
+            onBlur={(e) =>
+              editor
+                .chain()
+                .updateAttributes("image", {
+                  href: toImageHref(e.target.value),
+                })
+                .run()
+            }
+            onKeyDown={blurOnEnter}
+            placeholder="Optional: where a tap goes"
+            className="h-8 w-60"
+            inputMode="url"
+          />
+        </label>
+      </div>
       <Button
         type="button"
         variant="ghost"

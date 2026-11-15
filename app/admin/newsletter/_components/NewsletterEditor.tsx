@@ -15,6 +15,7 @@ import {
   Eye,
   Loader2,
   Monitor,
+  PlayCircle,
   Save,
   Send,
   Smartphone,
@@ -61,6 +62,7 @@ import {
 } from "@/app/_lib/schema";
 import { formatDateTime } from "@/app/_lib/utils";
 import InsertEventDialog from "@/app/admin/newsletter/_components/InsertEventDialog";
+import InsertVideoDialog from "@/app/admin/newsletter/_components/InsertVideoDialog";
 import {
   SNIPPETS,
   STARTER_TEMPLATE_HTML,
@@ -83,6 +85,7 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
   const [isSending, setIsSending] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
@@ -603,6 +606,11 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
                       >
                         <CalendarPlus className="w-4 h-4" /> Event card…
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setIsVideoDialogOpen(true)}
+                      >
+                        <PlayCircle className="w-4 h-4" /> Video…
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -898,6 +906,11 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
       <InsertEventDialog
         open={isEventDialogOpen}
         onOpenChange={setIsEventDialogOpen}
+        onInsert={insertAtCursor}
+      />
+      <InsertVideoDialog
+        open={isVideoDialogOpen}
+        onOpenChange={setIsVideoDialogOpen}
         onInsert={insertAtCursor}
       />
     </form>

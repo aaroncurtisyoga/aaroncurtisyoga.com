@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "@tiptap/extension-image";
 import { CharacterCount, Placeholder } from "@tiptap/extensions";
 import {
   useEditor,
@@ -22,6 +21,7 @@ import {
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { uploadEditorImage } from "@/app/_components/Tiptap/image-upload";
+import LinkedImage from "@/app/_components/Tiptap/linked-image";
 import { isRichTextEmpty } from "@/app/_components/Tiptap/RichTextContent";
 import {
   looksLikeHtmlSource,
@@ -186,9 +186,10 @@ const Tiptap = memo(
         CharacterCount.configure({
           limit: maxLength,
         }),
-        // Block-level images, URL-only (no base64 blobs in stored HTML)
+        // Block-level images, URL-only (no base64 blobs in stored HTML).
+        // LinkedImage adds an optional link around the image.
         ...(enableImages
-          ? [Image.configure({ inline: false, allowBase64: false })]
+          ? [LinkedImage.configure({ inline: false, allowBase64: false })]
           : []),
       ],
       [placeholder, maxLength, enableImages],
