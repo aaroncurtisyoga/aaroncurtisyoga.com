@@ -358,7 +358,7 @@ export async function getFeaturedEvents(limit = 2, from: Date = new Date()) {
 
 /**
  * Feature/unfeature an event. One star drives both the homepage's featured
- * section and the newsletter's Upcoming block. Works for synced events too,
+ * section and the newsletter's Special event block. Works for synced events too,
  * since featuring is independent of source.
  */
 export async function toggleEventFeatured(

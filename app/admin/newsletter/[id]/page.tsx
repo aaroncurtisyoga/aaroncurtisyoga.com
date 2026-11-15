@@ -57,12 +57,14 @@ const NewsletterDetailPage: FC = () => {
     const data = await getNewsletterById(id);
     setNewsletter(data);
     // The read-only view shows the sentHtml snapshot (exactly what Resend got)
-    // when one exists. Rebuilding sections live is only the fallback for
-    // newsletters sent before snapshots existed. Drafts render the editor,
-    // which fetches its own live sections.
+    // when one exists. A scheduled send has none yet, so its sections are
+    // built live. An issue sent before snapshots existed shows its message
+    // alone, like the public archive: rebuilding the sections now would put
+    // today's events in an old email. Drafts render the editor, which fetches
+    // its own live sections.
     if (data && data.status !== "DRAFT") {
       const [sections, links, bouncedAddresses] = await Promise.all([
-        data.sentHtml
+        data.sentHtml || data.status === "SENT"
           ? ""
           : getNewsletterEventSectionsHtml({
               includeUpcoming: data.includeUpcoming,

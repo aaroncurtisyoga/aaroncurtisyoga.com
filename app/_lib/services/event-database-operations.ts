@@ -1,4 +1,5 @@
 import prisma from "@/app/_lib/prisma";
+import { isGeneratedSyncDescription } from "@/app/_lib/email/event-html";
 import { SyncEventData } from "@/app/_lib/types/event";
 import {
   createCalendarEvent,
@@ -46,7 +47,12 @@ export class EventDatabaseOperations {
         sourceType,
         sourceId: { in: uniqueEventUpdates.map((e) => e.sourceId) },
       },
-      select: { id: true, sourceId: true, googleEventId: true },
+      select: {
+        id: true,
+        sourceId: true,
+        googleEventId: true,
+        description: true,
+      },
     });
 
     const existingMap = new Map(existingEvents.map((e) => [e.sourceId, e]));
@@ -217,7 +223,12 @@ export class EventDatabaseOperations {
     eventsToUpdate: SyncEventData[],
     existingMap: Map<
       string | null,
-      { id: string; sourceId: string | null; googleEventId: string | null }
+      {
+        id: string;
+        sourceId: string | null;
+        googleEventId: string | null;
+        description: string | null;
+      }
     >,
   ) {
     if (eventsToUpdate.length === 0) return;
@@ -239,7 +250,12 @@ export class EventDatabaseOperations {
             externalUrl: eventData.externalUrl,
             lastSynced: eventData.lastSynced,
             price: eventData.price,
-            description: eventData.description,
+            // The studios give us no copy, so the sync writes a stock line.
+            // Once the description has been rewritten in admin (a featured
+            // class, say) leave it alone rather than reset it every morning.
+            description: isGeneratedSyncDescription(existingEvent.description)
+              ? eventData.description
+              : undefined,
             isActive: eventData.isActive,
           },
           include: { location: true },
@@ -258,6 +274,7 @@ export class EventDatabaseOperations {
             id: string;
             sourceId: string;
             googleEventId: string | null;
+            description: string | null;
           };
           updatedEvent: any;
         }> => r.status === "fulfilled",

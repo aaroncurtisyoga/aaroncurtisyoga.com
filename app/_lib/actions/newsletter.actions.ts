@@ -27,7 +27,8 @@ import {
   NewsletterSubscriberUpdateSchema,
 } from "@/app/_lib/schema";
 import {
-  eventListItemHtml,
+  classListHtml,
+  featuredEventHtml,
   NEWSLETTER_SITE_URL,
 } from "@/app/_lib/email/event-html";
 import { EventWithLocationAndCategory } from "@/app/_lib/types";
@@ -1041,21 +1042,26 @@ async function buildEventSectionsHtml({
     // for scheduled sends is in the future.
     const sendTime = at ?? new Date();
     const sections: string[] = [];
+    // A starred class that also falls in the listed week shows once, in its
+    // panel, rather than again in the class list.
+    const featuredIds = new Set<string>();
 
     if (includeUpcoming) {
       // The cutoff goes into the query itself — post-fetch filtering would let
       // events between now and a scheduled send starve the list.
       const upcoming = await getFeaturedEvents(5, sendTime).catch(() => []);
+      for (const event of upcoming) featuredIds.add(event.id);
       if (upcoming.length > 0) {
         sections.push(
-          `<h2>Upcoming</h2><ul>${upcoming
+          // Not "Upcoming": the class list below can be headed "Upcoming
+          // classes", and the two read as one section said twice.
+          `<h2>${upcoming.length === 1 ? "Special event" : "Special events"}</h2>${upcoming
             .map((event) =>
-              eventListItemHtml(event, {
+              featuredEventHtml(event, {
                 withDescription: includeDescriptions,
-                withCta: true,
               }),
             )
-            .join("")}</ul>`,
+            .join("")}`,
         );
       }
     }
@@ -1076,18 +1082,16 @@ async function buildEventSectionsHtml({
         }
         // Only classes still to come — past ones (in the current week) are noise.
         const classesThisWeek = weekEvents.filter(
-          (event) => new Date(event.startDateTime) >= sendTime,
+          (event) =>
+            new Date(event.startDateTime) >= sendTime &&
+            !featuredIds.has(event.id),
         );
         if (classesThisWeek.length > 0) {
           const heading =
             weekMondayIso === getEtMondayIso(sendTime)
               ? "Classes this week"
               : "Upcoming classes";
-          sections.push(
-            `<h2>${heading}</h2><ul>${classesThisWeek
-              .map((event) => eventListItemHtml(event))
-              .join("")}</ul>`,
-          );
+          sections.push(`<h2>${heading}</h2>${classListHtml(classesThisWeek)}`);
         }
       }
     }
