@@ -4,6 +4,7 @@ import {
   getEventBookingLink,
   richTextToPlainText,
 } from "@/app/_lib/utils";
+import { isGeneratedSyncDescription } from "@/app/_lib/email/event-html";
 import type { HomepageClass } from "../_lib/types";
 
 /**
@@ -40,7 +41,12 @@ function FeaturedCard({ event }: { event: HomepageClass }) {
   const { href, external } = getEventBookingLink(event);
   // The first paragraph is the lead, set large, so put the thing people most
   // need to know there (for a studio workshop: just show up).
-  const [lead, ...rest] = (event.description ?? "")
+  // A synced class that hasn't been given its own description carries a stock
+  // line about a button on the event page. Show the card without it.
+  const description = isGeneratedSyncDescription(event.description)
+    ? ""
+    : (event.description ?? "");
+  const [lead, ...rest] = description
     .split(/<\/p>/i)
     .map(richTextToPlainText)
     .filter(Boolean);

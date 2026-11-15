@@ -202,7 +202,7 @@ export function renderNewsletterText({
     // spans; without breaks on both edges they'd glue onto adjacent text.
     .replace(/<span\b[^>]*display\s*:\s*block[^>]*>/gi, "\n")
     .replace(/<\/span>/gi, "\n")
-    .replace(/<\/(?:h1|h2|h3|p|ul|ol|blockquote|div)>/gi, "\n\n")
+    .replace(/<\/(?:h1|h2|h3|p|ul|ol|blockquote|div|tr)>/gi, "\n\n")
     .replace(/<\/li>/gi, "")
     .replace(/<img\b[^>]*>/gi, "")
     .replace(/<[^>]*>/g, "");

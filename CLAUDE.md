@@ -175,7 +175,7 @@ scripts/                       # import-subscribers, version.sh, plus three asse
 
 9 models in `prisma/schema.prisma`.
 
-- **Event**: title, dates, price, isFree, isFeatured (one admin star: the homepage's featured section until `endDateTime` passes, and the newsletter's Upcoming block), isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
+- **Event**: title, dates, price, isFree, isFeatured (one admin star: the homepage's featured section until `endDateTime` passes, and the newsletter's Special event block), isActive, category, location, maxAttendees, googleEventId. Two separate external flags: `isHostedExternally` (advertised but not sold here) and `isExternal` (came from a crawler), plus sourceType/sourceId
 - **User**: clerkId (unique), email, firstName, lastName, photo
 - **Order**: stripeId, totalAmount, type (EVENT/PRIVATE_SESSION), buyer to User, event to Event
 - **EventUser**: join table (userId + eventId composite PK)
