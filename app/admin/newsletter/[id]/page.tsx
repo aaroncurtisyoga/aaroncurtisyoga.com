@@ -70,6 +70,7 @@ const NewsletterDetailPage: FC = () => {
               includeUpcoming: data.includeUpcoming,
               includeClasses: data.includeClasses,
               includeDescriptions: data.includeDescriptions,
+              excludedEventIds: data.excludedEventIds,
               // A scheduled send's sections are built for its send moment, so
               // preview the same thing here.
               at:

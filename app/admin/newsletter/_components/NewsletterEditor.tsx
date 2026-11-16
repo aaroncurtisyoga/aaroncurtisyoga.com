@@ -15,6 +15,7 @@ import {
   Eye,
   Loader2,
   Monitor,
+  MousePointerClick,
   PlayCircle,
   Save,
   Send,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +53,8 @@ import {
   resolveMergeTags,
 } from "@/app/_lib/email/newsletter-template";
 import {
-  getNewsletterEventSectionsHtml,
+  getNewsletterEventSections,
+  type NewsletterSectionEvent,
   getSubscriberCount,
   sendNewsletter,
   sendTestNewsletter,
@@ -61,6 +64,7 @@ import {
   NewsletterComposeSchema,
 } from "@/app/_lib/schema";
 import { formatDateTime } from "@/app/_lib/utils";
+import InsertButtonDialog from "@/app/admin/newsletter/_components/InsertButtonDialog";
 import InsertEventDialog from "@/app/admin/newsletter/_components/InsertEventDialog";
 import InsertVideoDialog from "@/app/admin/newsletter/_components/InsertVideoDialog";
 import {
@@ -86,11 +90,16 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
+  const [isButtonDialogOpen, setIsButtonDialogOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
   const [isSending, setIsSending] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   // Live "Upcoming" + "Classes This Week" HTML, appended after the message.
   const [sectionsHtml, setSectionsHtml] = useState("");
+  // The events those sections draw from, so any one can be left out.
+  const [sectionEvents, setSectionEvents] = useState<NewsletterSectionEvent[]>(
+    [],
+  );
   // Live-preview mode renders the email beside the editor as you type.
   const [livePreview, setLivePreview] = useState(true);
   // Shown in the Send dialog so "send to all subscribers" has a number on it.
@@ -122,6 +131,7 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
       includeUpcoming: newsletter?.includeUpcoming ?? true,
       includeClasses: newsletter?.includeClasses ?? true,
       includeDescriptions: newsletter?.includeDescriptions ?? false,
+      excludedEventIds: newsletter?.excludedEventIds ?? [],
     },
   });
 
@@ -157,6 +167,10 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
     control,
     name: "includeDescriptions",
   });
+  const excludedEventIds = useWatch({ control, name: "excludedEventIds" });
+  // A stable key for the effect below: the watched array is a new reference
+  // on every render.
+  const excludedKey = (excludedEventIds ?? []).join(",");
   const subjectValue = useWatch({ control, name: "subject" }) ?? "";
   const previewTextValue = useWatch({ control, name: "previewText" }) ?? "";
 
@@ -165,12 +179,15 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
     let active = true;
     const loadSections = async () => {
       try {
-        const html = await getNewsletterEventSectionsHtml({
+        const { html, events } = await getNewsletterEventSections({
           includeUpcoming,
           includeClasses,
           includeDescriptions,
+          excludedEventIds: excludedKey ? excludedKey.split(",") : [],
         });
-        if (active) setSectionsHtml(html);
+        if (!active) return;
+        setSectionsHtml(html);
+        setSectionEvents(events);
       } catch {
         // Preview just omits the event sections until the next toggle change.
       }
@@ -179,7 +196,21 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
     return () => {
       active = false;
     };
-  }, [includeUpcoming, includeClasses, includeDescriptions]);
+  }, [includeUpcoming, includeClasses, includeDescriptions, excludedKey]);
+
+  const toggleEventExcluded = (eventId: string, show: boolean) => {
+    const current = getValues("excludedEventIds") ?? [];
+    setValue(
+      "excludedEventIds",
+      show
+        ? current.filter((id) => id !== eventId)
+        : [...current.filter((id) => id !== eventId), eventId],
+      { shouldDirty: true },
+    );
+  };
+  const hiddenCount = sectionEvents.filter((event) =>
+    (excludedEventIds ?? []).includes(event.id),
+  ).length;
 
   // Restore the live-preview choice for this browser (defaults on).
   useEffect(() => {
@@ -611,6 +642,11 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
                       >
                         <PlayCircle className="w-4 h-4" /> Video…
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={() => setIsButtonDialogOpen(true)}
+                      >
+                        <MousePointerClick className="w-4 h-4" /> Button…
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -692,6 +728,55 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
                   Turn off “Classes this week” to focus a send on just an
                   upcoming event. Empty sections are skipped automatically.
                 </p>
+                {sectionEvents.length > 0 && (
+                  <details className="mt-3 border-t border-border pt-3">
+                    <summary className="cursor-pointer text-sm text-foreground">
+                      Choose which events to include
+                      {hiddenCount > 0 && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          ({hiddenCount} hidden)
+                        </span>
+                      )}
+                    </summary>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Uncheck an event to leave it out of this send. It stays on
+                      the site and in future newsletters.
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {sectionEvents.map((event) => {
+                        const inputId = `section-event-${event.id}`;
+                        return (
+                          <li key={event.id} className="flex items-start gap-2">
+                            <Checkbox
+                              id={inputId}
+                              className="mt-0.5"
+                              checked={
+                                !(excludedEventIds ?? []).includes(event.id)
+                              }
+                              onCheckedChange={(checked) =>
+                                toggleEventExcluded(event.id, checked === true)
+                              }
+                              disabled={isSending}
+                            />
+                            <Label
+                              htmlFor={inputId}
+                              className="block text-sm font-normal leading-snug text-foreground"
+                            >
+                              {event.title}
+                              <span className="block text-xs text-muted-foreground">
+                                {event.when}
+                                {event.section === "upcoming"
+                                  ? " · Special event"
+                                  : ""}
+                              </span>
+                            </Label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
+                )}
               </div>
             </div>
           </CardContent>
@@ -911,6 +996,11 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
       <InsertVideoDialog
         open={isVideoDialogOpen}
         onOpenChange={setIsVideoDialogOpen}
+        onInsert={insertAtCursor}
+      />
+      <InsertButtonDialog
+        open={isButtonDialogOpen}
+        onOpenChange={setIsButtonDialogOpen}
         onInsert={insertAtCursor}
       />
     </form>

@@ -29,6 +29,11 @@ export const SNIPPETS: Snippet[] = [
     html: "<p>~ Aaron</p>",
   },
   {
+    label: "Reply prompt",
+    // Replies land in the inbox set as replyTo on the broadcast.
+    html: "<p>Hit reply and tell me how your practice is going. Every reply comes straight to me.</p>",
+  },
+  {
     label: "Workshop announcement",
     html:
       "<h2>[Workshop name]</h2>" +

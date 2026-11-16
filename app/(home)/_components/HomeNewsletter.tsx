@@ -1,6 +1,12 @@
+import Link from "next/link";
 import HomeNewsletterForm from "./HomeNewsletterForm";
 
-export default function HomeNewsletter() {
+export default function HomeNewsletter({
+  showArchiveLink = true,
+}: {
+  /** The archive page itself turns this off. */
+  showArchiveLink?: boolean;
+}) {
   return (
     <section
       id="newsletter"
@@ -15,6 +21,15 @@ export default function HomeNewsletter() {
           One short email a month: what I’m teaching, where to find me, and one
           small thing to take onto the mat.
         </p>
+        {showArchiveLink && (
+          <Link
+            href="/newsletter"
+            data-testid="newsletter-archive-link"
+            className="mt-4 inline-block font-medium text-moss underline underline-offset-4 transition-opacity hover:opacity-70"
+          >
+            Read past issues
+          </Link>
+        )}
       </div>
       <HomeNewsletterForm />
     </section>

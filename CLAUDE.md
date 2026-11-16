@@ -73,6 +73,10 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 - Compose/schedule/send from `/admin/newsletter`. Drafts live in the `Newsletter` Prisma model, delivery via Resend Broadcast API (scheduling handled by Resend, no cron)
 - Unsubscribes handled by Resend via `{{{RESEND_UNSUBSCRIBE_URL}}}` in the email template (`app/_lib/email/newsletter-template.ts`)
 - One-time Mailchimp import: `npx tsx scripts/import-subscribers.ts <export.csv>`
+- A new signup gets a welcome email from `addNewsletterEntry` (copy in `app/_lib/email/welcome-email.ts`), sent through the transactional API. That API has no unsubscribe link, so the template's `footer: "welcome"` variant asks for a reply instead
+- Every send sets `replyTo` to `instructorEmailAddress`
+- A button in the body is a normal link with `data-button` (`app/_components/Tiptap/button-link.ts`). The template inlines its pill styles at render time (`styleButtonLinks`), because the stored HTML carries no styles
+- `Newsletter.excludedEventIds` hides individual events from the auto-sections for one send. `collectSectionEvents` returns the full list for the composer's checklist and `renderEventSections` drops the hidden ones
 
 ### Event Sync Architecture
 

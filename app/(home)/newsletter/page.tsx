@@ -69,7 +69,7 @@ const NewsletterArchivePage = async () => {
         )}
       </section>
 
-      <HomeNewsletter />
+      <HomeNewsletter showArchiveLink={false} />
     </>
   );
 };

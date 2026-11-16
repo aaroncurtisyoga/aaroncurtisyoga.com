@@ -4,6 +4,7 @@ import type { Newsletter } from "@prisma/client";
 import { currentUser } from "@clerk/nextjs/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "@/app/_lib/auth";
+import { instructorEmailAddress } from "@/app/_lib/constants";
 import { NEWSLETTERS_CACHE_TAG } from "@/app/_lib/constants/cache-tags";
 import { z } from "zod";
 import {
@@ -12,6 +13,7 @@ import {
   renderNewsletterText,
   resolveMergeTags,
 } from "@/app/_lib/email/newsletter-template";
+import { renderWelcomeEmail } from "@/app/_lib/email/welcome-email";
 import prisma from "@/app/_lib/prisma";
 import resend from "@/app/_lib/resend";
 import {
@@ -28,6 +30,7 @@ import {
 } from "@/app/_lib/schema";
 import {
   classListHtml,
+  eventWhenLabel,
   featuredEventHtml,
   NEWSLETTER_SITE_URL,
 } from "@/app/_lib/email/event-html";
@@ -44,6 +47,8 @@ type EventSectionOptions = {
   includeUpcoming?: boolean;
   includeClasses?: boolean;
   includeDescriptions?: boolean;
+  /** Events this send leaves out of both sections. */
+  excludedEventIds?: string[];
   /**
    * The moment the email will actually reach inboxes. Scheduled sends pass
    * their send time so "Classes This Week" is the send week (not the
@@ -54,6 +59,8 @@ type EventSectionOptions = {
 };
 
 const NEWSLETTER_ADMIN_PATH = "/admin/newsletter";
+// Replies go to the inbox Aaron reads, whatever address the send comes from.
+const NEWSLETTER_REPLY_TO = instructorEmailAddress;
 
 /* -------------------------------- Helpers -------------------------------- */
 
@@ -65,10 +72,36 @@ function getResendConfig() {
       "Missing RESEND_SEGMENT_ID or RESEND_FROM_EMAIL environment variable",
     );
   }
-  return { segmentId, from };
+  return { segmentId, from, replyTo: NEWSLETTER_REPLY_TO };
 }
 
 /* ----------------------------- Public signup ----------------------------- */
+
+/**
+ * Best effort: the person is already subscribed by the time this runs, so a
+ * failed welcome is logged and never turns a good signup into an error.
+ */
+async function sendWelcomeEmail(email: string, firstName?: string) {
+  try {
+    const from = process.env.RESEND_FROM_EMAIL;
+    if (!from) {
+      console.error("[newsletter] welcome email skipped: no RESEND_FROM_EMAIL");
+      return;
+    }
+    const { subject, html, text } = renderWelcomeEmail({ firstName });
+    const { error } = await resend.emails.send({
+      from,
+      to: email,
+      replyTo: NEWSLETTER_REPLY_TO,
+      subject,
+      html,
+      text,
+    });
+    if (error) console.error("[newsletter] welcome email failed:", error);
+  } catch (error) {
+    console.error("[newsletter] welcome email failed:", error);
+  }
+}
 
 export async function addNewsletterEntry(data: SignupInputs) {
   const formValidationResult = NewsletterFormSchema.safeParse(data);
@@ -99,6 +132,13 @@ export async function addNewsletterEntry(data: SignupInputs) {
         message: "Sorry. Something went wrong. Please try again later!",
       };
     }
+
+    // Only a brand new contact gets here (a repeat signup returned above), so
+    // submitting the form twice can't send the welcome twice.
+    await sendWelcomeEmail(
+      formValidationResult.data.email,
+      formValidationResult.data.firstName,
+    );
 
     return { message: "You're on the list!" };
   } catch (error) {
@@ -488,7 +528,7 @@ export async function duplicateNewsletter(id: string) {
 export async function sendNewsletter(id: string, scheduledAtIso?: string) {
   await requireAdmin();
   try {
-    const { segmentId, from } = getResendConfig();
+    const { segmentId, from, replyTo } = getResendConfig();
 
     const newsletter = await prisma.newsletter.findUnique({ where: { id } });
     if (!newsletter) {
@@ -601,6 +641,7 @@ export async function sendNewsletter(id: string, scheduledAtIso?: string) {
       includeUpcoming: newsletter.includeUpcoming,
       includeClasses: newsletter.includeClasses,
       includeDescriptions: newsletter.includeDescriptions,
+      excludedEventIds: newsletter.excludedEventIds,
       at: scheduledAt,
     });
     const html = renderNewsletterHtml({
@@ -637,6 +678,7 @@ export async function sendNewsletter(id: string, scheduledAtIso?: string) {
     const createResult = await resend.broadcasts.create({
       segmentId,
       from,
+      replyTo,
       subject: newsletter.subject,
       previewText: newsletter.previewText ?? undefined,
       name: newsletter.subject,
@@ -705,7 +747,7 @@ export async function sendTestNewsletter(data: ComposeInputs) {
   }
 
   try {
-    const { from } = getResendConfig();
+    const { from, replyTo } = getResendConfig();
 
     const user = await currentUser();
     const email = user?.emailAddresses?.[0]?.emailAddress;
@@ -722,6 +764,7 @@ export async function sendTestNewsletter(data: ComposeInputs) {
       includeUpcoming: validation.data.includeUpcoming,
       includeClasses: validation.data.includeClasses,
       includeDescriptions: validation.data.includeDescriptions,
+      excludedEventIds: validation.data.excludedEventIds,
     });
     // The transactional API doesn't substitute merge tags, so resolve them
     // here with the admin's own details for a realistic test.
@@ -739,6 +782,7 @@ export async function sendTestNewsletter(data: ComposeInputs) {
     const { error } = await resend.emails.send({
       from,
       to: email,
+      replyTo,
       subject: `[Test] ${validation.data.subject}`,
       html,
       text: renderNewsletterText({
@@ -1030,78 +1074,161 @@ function getEtMondayIso(now: Date): string {
  * simply omits them. Kept out of the saved draft so duplicating a newsletter
  * never bakes in a stale snapshot.
  */
-async function buildEventSectionsHtml({
-  includeUpcoming = true,
-  includeClasses = true,
-  includeDescriptions = false,
-  at,
-}: EventSectionOptions = {}): Promise<string> {
+async function buildEventSectionsHtml(
+  opts: EventSectionOptions = {},
+): Promise<string> {
+  const { includeUpcoming = true, includeClasses = true } = opts;
   if (!includeUpcoming && !includeClasses) return "";
   try {
-    // All "is this still upcoming?" math runs against the send moment, which
-    // for scheduled sends is in the future.
-    const sendTime = at ?? new Date();
-    const sections: string[] = [];
-    // A starred class that also falls in the listed week shows once, in its
-    // panel, rather than again in the class list.
-    const featuredIds = new Set<string>();
-
-    if (includeUpcoming) {
-      // The cutoff goes into the query itself — post-fetch filtering would let
-      // events between now and a scheduled send starve the list.
-      const upcoming = await getFeaturedEvents(5, sendTime).catch(() => []);
-      for (const event of upcoming) featuredIds.add(event.id);
-      if (upcoming.length > 0) {
-        sections.push(
-          // Not "Upcoming": the class list below can be headed "Upcoming
-          // classes", and the two read as one section said twice.
-          `<h2>${upcoming.length === 1 ? "Special event" : "Special events"}</h2>${upcoming
-            .map((event) =>
-              featuredEventHtml(event, {
-                withDescription: includeDescriptions,
-              }),
-            )
-            .join("")}`,
-        );
-      }
-    }
-
-    if (includeClasses) {
-      // Roll forward past empty weeks: anchor on the next upcoming event so the
-      // classes block shows the following week's schedule instead of going
-      // blank once the current week is over. Stays blank only when nothing at
-      // all is on the calendar ahead of the send moment.
-      const nextStart = await getNextEventStart(sendTime);
-      if (nextStart) {
-        const weekMondayIso = getEtMondayIso(nextStart);
-        let weekEvents: EventWithLocationAndCategory[] = [];
-        try {
-          weekEvents = await getEventsByWeek(weekMondayIso);
-        } catch {
-          weekEvents = [];
-        }
-        // Only classes still to come — past ones (in the current week) are noise.
-        const classesThisWeek = weekEvents.filter(
-          (event) =>
-            new Date(event.startDateTime) >= sendTime &&
-            !featuredIds.has(event.id),
-        );
-        if (classesThisWeek.length > 0) {
-          const heading =
-            weekMondayIso === getEtMondayIso(sendTime)
-              ? "Classes this week"
-              : "Upcoming classes";
-          sections.push(`<h2>${heading}</h2>${classListHtml(classesThisWeek)}`);
-        }
-      }
-    }
-
-    if (sections.length === 0) return "";
-    // A divider separates the writer's message from the auto-added listings.
-    return `<hr>${sections.join("")}`;
+    return renderEventSections(await collectSectionEvents(opts), opts);
   } catch (error) {
     console.error("Failed to build newsletter event sections:", error);
     return "";
+  }
+}
+
+type SectionEvents = {
+  /** Starred events, including any this send hides. */
+  upcoming: EventWithLocationAndCategory[];
+  /** The listed week's remaining classes, including any this send hides. */
+  classes: EventWithLocationAndCategory[];
+  classesHeading: string;
+};
+
+const UPCOMING_LIMIT = 5;
+
+/**
+ * The events the auto-sections draw from, before this send's hidden ones are
+ * taken out. The composer lists these so an event can be hidden and brought
+ * back; renderEventSections drops the hidden ones.
+ */
+async function collectSectionEvents({
+  includeUpcoming = true,
+  includeClasses = true,
+  excludedEventIds = [],
+  at,
+}: EventSectionOptions): Promise<SectionEvents> {
+  // All "is this still upcoming?" math runs against the send moment, which
+  // for scheduled sends is in the future.
+  const sendTime = at ?? new Date();
+  const excluded = new Set(excludedEventIds);
+  const result: SectionEvents = {
+    upcoming: [],
+    classes: [],
+    classesHeading: "Classes this week",
+  };
+
+  if (includeUpcoming) {
+    // The cutoff goes into the query itself: post-fetch filtering would let
+    // events between now and a scheduled send starve the list. Hidden events
+    // don't count toward the limit, so hiding one lets the next one in.
+    const fetched = await getFeaturedEvents(
+      UPCOMING_LIMIT + excluded.size,
+      sendTime,
+    ).catch(() => []);
+    let shown = 0;
+    result.upcoming = fetched.filter(
+      (event) => excluded.has(event.id) || shown++ < UPCOMING_LIMIT,
+    );
+  }
+  // A starred class that also falls in the listed week shows once, in its
+  // panel, rather than again in the class list. A hidden one shows nowhere.
+  const featuredIds = new Set(result.upcoming.map((event) => event.id));
+
+  if (includeClasses) {
+    // Roll forward past empty weeks: anchor on the next upcoming event so the
+    // classes block shows the following week's schedule instead of going
+    // blank once the current week is over. Stays blank only when nothing at
+    // all is on the calendar ahead of the send moment.
+    const nextStart = await getNextEventStart(sendTime);
+    if (nextStart) {
+      const weekMondayIso = getEtMondayIso(nextStart);
+      let weekEvents: EventWithLocationAndCategory[] = [];
+      try {
+        weekEvents = await getEventsByWeek(weekMondayIso);
+      } catch {
+        weekEvents = [];
+      }
+      // Only classes still to come. Past ones (in the current week) are noise.
+      result.classes = weekEvents.filter(
+        (event) =>
+          new Date(event.startDateTime) >= sendTime &&
+          !featuredIds.has(event.id),
+      );
+      if (weekMondayIso !== getEtMondayIso(sendTime)) {
+        result.classesHeading = "Upcoming classes";
+      }
+    }
+  }
+
+  return result;
+}
+
+function renderEventSections(
+  events: SectionEvents,
+  { includeDescriptions = false, excludedEventIds = [] }: EventSectionOptions,
+): string {
+  const excluded = new Set(excludedEventIds);
+  const upcoming = events.upcoming.filter((event) => !excluded.has(event.id));
+  const classes = events.classes.filter((event) => !excluded.has(event.id));
+  const sections: string[] = [];
+
+  if (upcoming.length > 0) {
+    sections.push(
+      // Not "Upcoming": the class list below can be headed "Upcoming
+      // classes", and the two read as one section said twice.
+      `<h2>${upcoming.length === 1 ? "Special event" : "Special events"}</h2>${upcoming
+        .map((event) =>
+          featuredEventHtml(event, { withDescription: includeDescriptions }),
+        )
+        .join("")}`,
+    );
+  }
+  if (classes.length > 0) {
+    sections.push(`<h2>${events.classesHeading}</h2>${classListHtml(classes)}`);
+  }
+
+  if (sections.length === 0) return "";
+  // A divider separates the writer's message from the auto-added listings.
+  return `<hr>${sections.join("")}`;
+}
+
+export type NewsletterSectionEvent = {
+  id: string;
+  title: string;
+  when: string;
+  section: "upcoming" | "classes";
+};
+
+/**
+ * What the composer needs to preview the auto-sections and to offer each
+ * event in them as something this send can leave out: the rendered HTML
+ * (hidden events removed) and the full list (hidden events still in it).
+ */
+export async function getNewsletterEventSections(
+  opts: EventSectionOptions = {},
+): Promise<{ html: string; events: NewsletterSectionEvent[] }> {
+  await requireAdmin();
+  try {
+    const collected = await collectSectionEvents(opts);
+    const toRow =
+      (section: NewsletterSectionEvent["section"]) =>
+      (event: EventWithLocationAndCategory): NewsletterSectionEvent => ({
+        id: event.id,
+        title: event.title,
+        when: eventWhenLabel(event),
+        section,
+      });
+    return {
+      html: renderEventSections(collected, opts),
+      events: [
+        ...collected.upcoming.map(toRow("upcoming")),
+        ...collected.classes.map(toRow("classes")),
+      ],
+    };
+  } catch (error) {
+    console.error("Failed to build newsletter event sections:", error);
+    return { html: "", events: [] };
   }
 }
 

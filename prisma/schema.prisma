@@ -121,6 +121,8 @@ model Newsletter {
   includeUpcoming     Boolean @default(true)
   includeClasses      Boolean @default(true)
   includeDescriptions Boolean @default(false)
+  // Event ids left out of those auto-sections for this send only
+  excludedEventIds    String[] @default([])
 
   // Unique-recipient counters, incremented by the Resend webhook
   deliveredCount  Int @default(0)
