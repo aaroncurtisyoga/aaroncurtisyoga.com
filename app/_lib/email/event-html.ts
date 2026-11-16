@@ -109,11 +109,12 @@ export function featuredEventHtml(
 
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;"><tr>` +
-    `<td style="background-color:${EMAIL_SAND}; border-radius:16px; padding:24px 26px 26px;">` +
+    // nl-panel: the template's phone styles tighten this padding
+    `<td class="nl-panel" style="background-color:${EMAIL_SAND}; border-radius:16px; padding:24px 26px 26px;">` +
     `<p style="margin:0 0 8px; color:${EMAIL_INK_LABEL}; font-size:12px; line-height:1.5; letter-spacing:0.1em; text-transform:uppercase;">${eventWhenLabel(event)}${eventWhereLabel(event)}</p>` +
     `<p style="margin:0; font-family:${EMAIL_SERIF}; color:${EMAIL_INK}; font-size:26px; font-weight:500; line-height:1.15;">${escapeHtml(event.title)}</p>` +
     description +
-    `<p style="margin:18px 0 0;"><a href="${href}" style="display:inline-block; background-color:${CTA}; color:#ffffff; text-decoration:none; font-weight:700; font-size:14px; padding:11px 24px; border-radius:999px;">${ctaLabel}</a></p>` +
+    `<p style="margin:18px 0 0;"><a href="${href}" style="display:block; text-align:center; background-color:${CTA}; color:#ffffff; text-decoration:none; font-weight:700; font-size:16px; line-height:1.25; padding:16px 24px; border-radius:999px;">${ctaLabel}</a></p>` +
     `</td></tr></table>`
   );
 }

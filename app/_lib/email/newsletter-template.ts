@@ -1,6 +1,8 @@
 const SITE_URL = "https://www.aaroncurtisyoga.com";
 const INSTAGRAM_URL = "https://www.instagram.com/aaroncurtisyoga/";
 const YOUTUBE_URL = "https://www.youtube.com/channel/UCwwNWri2IhKxXKmQkCpj-uw";
+// Where a reader who was forwarded an issue can sign up.
+const SUBSCRIBE_URL = `${SITE_URL}/#newsletter`;
 // The email mirrors the homepage palette (see the token block in
 // app/globals.css). Keep these in step with it, and with NAVY in
 // scripts/generate-email-icons.ts, which draws the footer badges.
@@ -141,6 +143,22 @@ function makeImagesEmailSafe(html: string): string {
   });
 }
 
+/**
+ * Dress the composer's button links for email. In the stored HTML a button is
+ * an ordinary link carrying data-button (see Tiptap/button-link.ts); the pill
+ * has to be inline styles because Gmail drops <head> styles for some accounts.
+ * Same look as the "Sign up" button on a featured event.
+ */
+function styleButtonLinks(html: string): string {
+  // Full width of the letter, on phones and desktop alike.
+  const BUTTON_STYLE = `display:block;text-align:center;background-color:${MOSS};color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;line-height:1.25;padding:16px 24px;border-radius:999px;`;
+  return html.replace(/<a\b[^>]*\bdata-button\b[^>]*>/gi, (tag) =>
+    /\bstyle\s*=/i.test(tag)
+      ? tag
+      : tag.replace(/^<a\b/i, `<a style="${BUTTON_STYLE}"`),
+  );
+}
+
 /** Minimal entity decode for the plain-text part (TipTap escapes only these). */
 function decodeEntities(text: string): string {
   return text
@@ -153,10 +171,20 @@ function decodeEntities(text: string): string {
     .replace(/&amp;/g, "&");
 }
 
+/**
+ * Which fine print closes the email. "broadcast" is a regular issue: why
+ * you're getting it, the unsubscribe link, and a subscribe link for anyone it
+ * was forwarded to. "welcome" is the one-off sent on signup through the
+ * transactional API, which has no unsubscribe link to offer, so it asks for a
+ * reply instead.
+ */
+type NewsletterFooter = "broadcast" | "welcome";
+
 interface RenderNewsletterTextParams {
   contentHtml: string;
   /** Same contract as renderNewsletterHtml — test sends pass a real URL. */
   unsubscribeUrl?: string;
+  footer?: NewsletterFooter;
 }
 
 /**
@@ -169,6 +197,7 @@ interface RenderNewsletterTextParams {
 export function renderNewsletterText({
   contentHtml,
   unsubscribeUrl = "{{{RESEND_UNSUBSCRIBE_URL}}}",
+  footer = "broadcast",
 }: RenderNewsletterTextParams): string {
   const body = contentHtml
     // Links become "label (url)" so CTAs survive without markup. Skip
@@ -223,8 +252,16 @@ export function renderNewsletterText({
     `Instagram: ${INSTAGRAM_URL}`,
     `YouTube: ${YOUTUBE_URL}`,
     "",
-    `You're receiving this because you signed up at ${SITE_URL}`,
-    `Unsubscribe: ${unsubscribeUrl}`,
+    ...(footer === "welcome"
+      ? [
+          `You're receiving this because you just signed up at ${SITE_URL}`,
+          "Not you? Reply and I'll take you off the list.",
+        ]
+      : [
+          `Got this from a friend? Subscribe: ${SUBSCRIBE_URL}`,
+          `You're receiving this because you signed up at ${SITE_URL}`,
+          `Unsubscribe: ${unsubscribeUrl}`,
+        ]),
     "",
   ].join("\n");
 }
@@ -244,6 +281,7 @@ interface RenderNewsletterHtmlParams {
    * sends omit it (there's no archive page for an unsent draft).
    */
   viewInBrowserUrl?: string;
+  footer?: NewsletterFooter;
 }
 
 /**
@@ -256,6 +294,7 @@ export function renderNewsletterHtml({
   previewText,
   unsubscribeUrl = "{{{RESEND_UNSUBSCRIBE_URL}}}",
   viewInBrowserUrl,
+  footer = "broadcast",
 }: RenderNewsletterHtmlParams): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -263,8 +302,13 @@ export function renderNewsletterHtml({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+  /* The design is light only. Saying so stops Apple Mail from inverting the
+     sand and white in dark mode; Gmail's apps recolor on their own regardless. */
+  :root { color-scheme: light only; supported-color-schemes: light only; }
   body { margin: 0; padding: 0; background-color: ${SAND}; }
   .content h1, .content h2, .content h3 {
     font-family: ${SERIF};
@@ -288,6 +332,19 @@ export function renderNewsletterHtml({
   .content a { color: ${MOSS}; font-weight: 700; }
   .content img { max-width: 100%; height: auto; border-radius: 12px; }
   .content hr { border: none; border-top: 1px solid ${LINE}; margin: 30px 0; }
+  /* Phones: the sand page, the white letter and an event panel each bring
+     their own side padding, which left about 220px for text on a 375px
+     screen. The letter goes edge to edge and the panel tightens up, so text
+     and buttons get the width back. Clients that drop this block keep the
+     desktop spacing. */
+  @media only screen and (max-width: 480px) {
+    .nl-outer { padding: 12px 0 24px !important; }
+    .nl-card { padding: 28px 20px 32px !important; border-radius: 0 !important; }
+    .nl-fine { padding-left: 20px !important; padding-right: 20px !important; }
+    .nl-panel { padding: 20px 18px 20px !important; border-radius: 14px !important; }
+    .content h1 { font-size: 31px !important; }
+    .content h2 { font-size: 27px !important; }
+  }
 </style>
 </head>
 <body>
@@ -298,26 +355,26 @@ ${
 }
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${SAND};">
   <tr>
-    <td align="center" style="padding: 24px 16px;">
+    <td class="nl-outer" align="center" style="padding: 24px 16px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 ${
   viewInBrowserUrl
     ? `        <tr>
-          <td style="padding: 0 8px 8px; text-align: right; font-family: ${SANS}; font-size: 11px; line-height: 1.4;">
+          <td class="nl-fine" style="padding: 0 8px 8px; text-align: right; font-family: ${SANS}; font-size: 11px; line-height: 1.4;">
             <a href="${viewInBrowserUrl}" style="color:${MUTED}; text-decoration: underline;">View in browser</a>
           </td>
         </tr>`
     : ""
 }
         <tr>
-          <td style="background-color:#ffffff; border-radius: 20px; padding: 36px 36px 40px;">
+          <td class="nl-card" style="background-color:#ffffff; border-radius: 20px; padding: 36px 36px 40px;">
             <div style="text-align: center; padding-bottom: 22px;">
               <a href="${SITE_URL}" style="font-family: ${SERIF}; font-size: 28px; font-weight: 500; color: ${INK}; text-decoration: none;">
                 Aaron Curtis Yoga
               </a>
             </div>
             <div class="content" style="font-family: ${SANS}; font-size: 16px; line-height: 1.6; color: ${INK_MUTED};">
-              ${makeImagesEmailSafe(contentHtml)}
+              ${styleButtonLinks(makeImagesEmailSafe(contentHtml))}
             </div>
           </td>
         </tr>
@@ -340,11 +397,21 @@ ${
           </td>
         </tr>
         <tr>
-          <td style="padding: 4px 8px 0; text-align: center; font-family: ${SANS}; font-size: 12px; line-height: 2; color: ${MUTED};">
+          <td class="nl-fine" style="padding: 4px 8px 0; text-align: center; font-family: ${SANS}; font-size: 12px; line-height: 2; color: ${MUTED};">
+${
+  footer === "welcome"
+    ? `            You're receiving this email because you just signed up at
+            <a href="${SITE_URL}" style="color:${MUTED};">aaroncurtisyoga.com</a>.
+            <br>
+            Not you? Reply and I'll take you off the list.`
+    : `            Got this from a friend?
+            <a href="${SUBSCRIBE_URL}" style="color:${MUTED};">Subscribe here</a>.
+            <br>
             You're receiving this email because you signed up at
             <a href="${SITE_URL}" style="color:${MUTED};">aaroncurtisyoga.com</a>.
             <br>
-            <a href="${unsubscribeUrl}" style="color:${MUTED};">Unsubscribe</a>
+            <a href="${unsubscribeUrl}" style="color:${MUTED};">Unsubscribe</a>`
+}
           </td>
         </tr>
       </table>

@@ -21,6 +21,7 @@ import {
 import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { uploadEditorImage } from "@/app/_components/Tiptap/image-upload";
+import ButtonLink from "@/app/_components/Tiptap/button-link";
 import LinkedImage from "@/app/_components/Tiptap/linked-image";
 import { isRichTextEmpty } from "@/app/_components/Tiptap/RichTextContent";
 import {
@@ -152,22 +153,24 @@ const Tiptap = memo(
 
     const extensions = useMemo(
       () => [
-        // StarterKit v3 already includes Link and Underline — configure
-        // Link here rather than registering it twice. Nodes carry no classes:
-        // the stored HTML goes into emails and the event page, which style
-        // it themselves, and the editor styles it in index.module.css.
+        // StarterKit v3 already includes Link and Underline. Its Link is
+        // switched off in favor of ButtonLink below, the same mark with one
+        // more attribute, so it isn't registered twice. Nodes carry no
+        // classes: the stored HTML goes into emails and the event page, which
+        // style it themselves, and the editor styles it in index.module.css.
         StarterKit.configure({
           bulletList: { keepMarks: true, keepAttributes: false },
           orderedList: { keepMarks: true, keepAttributes: false },
           heading: { levels: [1, 2, 3] },
-          link: {
-            openOnClick: false,
-            HTMLAttributes: {
-              target: "_blank",
-              rel: "noopener noreferrer",
-            },
-            shouldAutoLink: (url) => /^https?:\/\//i.test(url),
+          link: false,
+        }),
+        ButtonLink.configure({
+          openOnClick: false,
+          HTMLAttributes: {
+            target: "_blank",
+            rel: "noopener noreferrer",
           },
+          shouldAutoLink: (url) => /^https?:\/\//i.test(url),
         }),
         // ⌘K / Ctrl+K opens the link dialog, as the toolbar tooltip promises
         Extension.create({

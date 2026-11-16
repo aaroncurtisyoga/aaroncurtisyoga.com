@@ -61,6 +61,9 @@ export const NewsletterComposeSchema = z.object({
   includeUpcoming: z.boolean(),
   includeClasses: z.boolean(),
   includeDescriptions: z.boolean(),
+  // Events hidden from the auto-sections for this send. Ids of events that
+  // have since passed just stop matching anything.
+  excludedEventIds: z.array(z.string().max(64)).max(100),
 });
 
 export const CategoryFormSchema = z.object({

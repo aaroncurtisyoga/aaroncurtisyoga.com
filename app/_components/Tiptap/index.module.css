@@ -88,6 +88,19 @@
 }
 
 /* Code and preformatted text styles */
+/* A button from the newsletter's Insert menu: a link flagged data-button.
+   Mirrors the pill the email template draws (styleButtonLinks). */
+.tiptap :global(a[data-button]) {
+  display: block;
+  padding: 0.9em 1.5em;
+  text-align: center;
+  border-radius: 999px;
+  background-color: #3f4a35;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .tiptap :global(code) {
   background-color: var(--muted);
   border-radius: 0.3rem;
