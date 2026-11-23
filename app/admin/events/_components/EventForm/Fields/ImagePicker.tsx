@@ -185,7 +185,7 @@ const ImagePicker: FC<ImagePickerProps> = ({ errors, setValue, control }) => {
 
           {currentImageUrl && (
             <div className="flex items-center gap-2">
-              <Badge className="bg-green-100 text-green-700">
+              <Badge variant="success">
                 <Check className="w-3 h-3 mr-1" /> Image Selected
                 <button onClick={clearImage} className="ml-1 hover:opacity-70">
                   <X className="h-3 w-3" />

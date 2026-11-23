@@ -49,7 +49,7 @@ const NewsletterDetailPage: FC = () => {
   const [bounced, setBounced] = useState<NewsletterBouncedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const [rescheduleAt, setRescheduleAt] = useState<Date | undefined>();
   const [isRescheduling, setIsRescheduling] = useState(false);
@@ -104,7 +104,7 @@ const NewsletterDetailPage: FC = () => {
     load();
   }, [load]);
 
-  // The dominant loop is "reuse last month's structure" — start it from the
+  // The dominant loop is "reuse last month's structure", so start it from the
   // email the admin is already looking at.
   const handleStartCopy = async () => {
     if (!newsletter) return;
@@ -119,7 +119,7 @@ const NewsletterDetailPage: FC = () => {
         setIsCopying(false);
       }
     } catch {
-      toast.error("Couldn't reach the server — check your connection.");
+      toast.error("Couldn't reach the server. Check your connection.");
       setIsCopying(false);
     }
   };
@@ -135,7 +135,7 @@ const NewsletterDetailPage: FC = () => {
     );
     if (rescheduleAt > maxSchedule) {
       toast.error(
-        `Resend can schedule up to ${NEWSLETTER_SCHEDULE_MAX_DAYS} days ahead — pick an earlier time.`,
+        `Resend can schedule up to ${NEWSLETTER_SCHEDULE_MAX_DAYS} days ahead. Pick an earlier time.`,
       );
       return;
     }
@@ -156,10 +156,10 @@ const NewsletterDetailPage: FC = () => {
       setIsRescheduleOpen(false);
       setRescheduleAt(undefined);
       // Whatever happened (rescheduled, back to draft, or already sent), the
-      // row changed — refetch and re-render the right view.
+      // row changed, so refetch and re-render the right view.
       await load();
     } catch {
-      toast.error("Couldn't reach the server — check your connection.");
+      toast.error("Couldn't reach the server. Check your connection.");
     } finally {
       setIsRescheduling(false);
     }
@@ -193,7 +193,7 @@ const NewsletterDetailPage: FC = () => {
 
   const handleConfirmCancel = async () => {
     if (!newsletter) return;
-    setIsCancelling(true);
+    setIsCanceling(true);
     try {
       const result = await cancelScheduledNewsletter(newsletter.id);
       if (result.status) {
@@ -203,10 +203,10 @@ const NewsletterDetailPage: FC = () => {
       }
       setIsCancelOpen(false);
       // Either way the status may have changed (DRAFT after cancel, SENT if
-      // it already went out) — refetch and let the page re-render.
+      // it already went out), so refetch and let the page re-render.
       await load();
     } finally {
-      setIsCancelling(false);
+      setIsCanceling(false);
     }
   };
 
@@ -269,17 +269,12 @@ const NewsletterDetailPage: FC = () => {
         <ArrowLeft className="h-4 w-4" /> Newsletters
       </Link>
       <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
-        <h1 className="truncate font-display text-3xl uppercase text-foreground">
+        <h1 className="min-w-0 break-words font-display text-3xl uppercase text-foreground">
           {newsletter.subject}
         </h1>
-        <div className="flex items-center gap-2">
-          <Badge
-            className={
-              isSent
-                ? "bg-green-100 text-green-800"
-                : "bg-amber-100 text-amber-800"
-            }
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sized like the sm buttons beside it so the row shares one height. */}
+          <Badge variant={isSent ? "success" : "warning"} className="h-8 px-3">
             {isSent ? "Sent" : "Scheduled"}
             {statusDate && ` · ${formatDateTime(statusDate).dateTime}`}
           </Badge>
@@ -338,13 +333,21 @@ const NewsletterDetailPage: FC = () => {
 
       {hasStats && (
         <>
-          <div className="mb-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div
+            className={`mb-2 grid grid-cols-2 gap-3 ${
+              // The spam tile only shows when there are complaints; give it a
+              // column so it doesn't wrap onto a row of its own.
+              newsletter.complainedCount > 0
+                ? "sm:grid-cols-5"
+                : "sm:grid-cols-4"
+            }`}
+          >
             {[
               {
                 label: "Delivered",
                 // The at-send audience size turns a bare count into a
                 // deliverability check ("118 of 120"). Hidden once delivered
-                // exceeds it — a scheduled send's audience can grow between
+                // exceeds it: a scheduled send's audience can grow between
                 // scheduling and sending, and "125 of 118" reads as nonsense.
                 value:
                   newsletter.recipientCount &&
@@ -382,8 +385,8 @@ const NewsletterDetailPage: FC = () => {
             ))}
           </div>
           <p className="mb-6 text-xs text-muted-foreground">
-            Unique recipients. Open counts are approximate — Apple Mail preloads
-            images, which registers as an open.
+            Unique recipients. Open counts are approximate, because Apple Mail
+            preloads images and each preload registers as an open.
           </p>
         </>
       )}
@@ -441,7 +444,7 @@ const NewsletterDetailPage: FC = () => {
               ))}
             </ul>
             <p className="mt-2 text-xs text-muted-foreground">
-              Often a typo&rsquo;d address — fix or remove it in{" "}
+              Often a mistyped address. Fix or remove it in{" "}
               <Link
                 href="/admin/newsletter/subscribers"
                 className="underline hover:text-foreground"
@@ -454,29 +457,39 @@ const NewsletterDetailPage: FC = () => {
         </Card>
       )}
 
-      <Card className="shadow-lg">
-        <CardContent className="pt-6">
-          <iframe
-            title="Newsletter content"
-            srcDoc={
-              newsletter.sentHtml
-                ? // The snapshot still carries the merge tags Resend resolves
-                  // per-recipient — resolve them to fallbacks for display.
-                  resolveMergeTags(newsletter.sentHtml).replace(
-                    /\{\{\{\s*RESEND_UNSUBSCRIBE_URL\s*\}\}\}/g,
-                    "#",
-                  )
-                : renderNewsletterHtml({
-                    contentHtml: `${resolveMergeTags(newsletter.content)}${sectionsHtml}`,
-                    previewText: newsletter.previewText ?? undefined,
-                    unsubscribeUrl: "#",
-                  })
-            }
-            className="w-full h-[70vh] rounded-md border bg-white"
-            sandbox=""
-          />
-        </CardContent>
-      </Card>
+      {/* One frame, as tall as the email, so the page has a single scrollbar.
+          allow-same-origin lets onLoad read the document's height. Scripts
+          stay blocked because allow-scripts is not granted. */}
+      <iframe
+        title="Newsletter content"
+        onLoad={(event) => {
+          const frame = event.currentTarget;
+          const doc = frame.contentDocument;
+          if (!doc) return;
+          // Collapse first: scrollHeight never reports less than the frame's
+          // own height, so a short email would keep the 70vh placeholder.
+          frame.style.height = "0px";
+          // Add the frame's own border back, or the last 2px would scroll.
+          const border = frame.offsetHeight - frame.clientHeight;
+          frame.style.height = `${doc.documentElement.scrollHeight + border}px`;
+        }}
+        srcDoc={
+          newsletter.sentHtml
+            ? // The snapshot still carries the merge tags Resend resolves
+              // per-recipient, so resolve them to fallbacks for display.
+              resolveMergeTags(newsletter.sentHtml).replace(
+                /\{\{\{\s*RESEND_UNSUBSCRIBE_URL\s*\}\}\}/g,
+                "#",
+              )
+            : renderNewsletterHtml({
+                contentHtml: `${resolveMergeTags(newsletter.content)}${sectionsHtml}`,
+                previewText: newsletter.previewText ?? undefined,
+                unsubscribeUrl: "#",
+              })
+        }
+        className="block h-[70vh] w-full rounded-xl border bg-white shadow-sm"
+        sandbox="allow-same-origin"
+      />
 
       <BasicModal
         isOpen={isRescheduleOpen}
@@ -555,8 +568,9 @@ const NewsletterDetailPage: FC = () => {
         onOpenChange={setIsCancelOpen}
         header="Cancel scheduled send"
         primaryAction={handleConfirmCancel}
-        primaryActionLabel={isCancelling ? "Cancelling…" : "Cancel the send"}
-        primaryActionDisabled={isCancelling}
+        primaryActionLabel={isCanceling ? "Canceling…" : "Cancel the send"}
+        primaryActionDisabled={isCanceling}
+        primaryActionVariant="destructive"
         cancelLabel="Keep it scheduled"
       >
         <div>
@@ -571,9 +585,9 @@ const NewsletterDetailPage: FC = () => {
               {formatDateTime(newsletter.scheduledAt).dateTime}
             </p>
           )}
-          {isCancelling && (
+          {isCanceling && (
             <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Cancelling…
+              <Loader2 className="h-4 w-4 animate-spin" /> Canceling…
             </p>
           )}
         </div>
