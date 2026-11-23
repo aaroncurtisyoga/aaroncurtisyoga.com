@@ -78,6 +78,19 @@ function getResendConfig() {
 /* ----------------------------- Public signup ----------------------------- */
 
 /**
+ * A signup makes up to four Resend calls back to back, which can trip their
+ * per-second limit. One short wait and a second try covers it.
+ */
+async function withResendRetry<T extends { error: { name: string } | null }>(
+  call: () => Promise<T>,
+): Promise<T> {
+  const first = await call();
+  if (first.error?.name !== "rate_limit_exceeded") return first;
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  return call();
+}
+
+/**
  * Best effort: the person is already subscribed by the time this runs, so a
  * failed welcome is logged and never turns a good signup into an error.
  */
@@ -89,64 +102,121 @@ async function sendWelcomeEmail(email: string, firstName?: string) {
       return;
     }
     const { subject, html, text } = renderWelcomeEmail({ firstName });
-    const { error } = await resend.emails.send({
-      from,
-      to: email,
-      replyTo: NEWSLETTER_REPLY_TO,
-      subject,
-      html,
-      text,
-    });
+    const { error } = await withResendRetry(() =>
+      resend.emails.send({
+        from,
+        to: email,
+        replyTo: NEWSLETTER_REPLY_TO,
+        subject,
+        html,
+        text,
+      }),
+    );
     if (error) console.error("[newsletter] welcome email failed:", error);
   } catch (error) {
     console.error("[newsletter] welcome email failed:", error);
   }
 }
 
-export async function addNewsletterEntry(data: SignupInputs) {
+type SignupResult = {
+  message: string;
+  formErrors?: boolean;
+  apiError?: string;
+};
+
+export async function addNewsletterEntry(
+  data: SignupInputs,
+): Promise<SignupResult> {
   const formValidationResult = NewsletterFormSchema.safeParse(data);
 
   if (formValidationResult.success === false) {
-    return { formErrors: formValidationResult.error.format() };
+    return {
+      formErrors: true,
+      message:
+        formValidationResult.error.issues[0]?.message ??
+        "Please check the form and try again.",
+    };
   }
+
+  const failure = {
+    apiError: "Failed to subscribe.",
+    message: "Sorry. Something went wrong. Please try again later!",
+  };
+  // The same answer whether the address is new, already subscribed or coming
+  // back. This action is unauthenticated, so anything more specific would let
+  // anyone test whether a given address is on the list.
+  const success = { message: "You're on the list!" };
 
   try {
     const segmentId = process.env.RESEND_SEGMENT_ID;
-    const { error } = await resend.contacts.create({
-      email: formValidationResult.data.email,
-      firstName: formValidationResult.data.firstName?.trim() || undefined,
-      segments: segmentId ? [{ id: segmentId }] : undefined,
-    });
+    if (!segmentId) {
+      console.error("[newsletter] signup failed: no RESEND_SEGMENT_ID");
+      return failure;
+    }
+    const { email } = formValidationResult.data;
+    const firstName = formValidationResult.data.firstName || undefined;
 
-    if (error) {
-      if (/already exist/i.test(error.message)) {
-        // Deliberately indistinguishable from a fresh signup. This action is
-        // unauthenticated, so returning "already subscribed" would let anyone
-        // test whether a given address is on the list.
-        console.info("[newsletter] signup for an address already subscribed");
-        return { message: "You're on the list!" };
-      }
-      console.error("Newsletter subscription error:", error);
-      return {
-        apiError: "Failed to subscribe.",
-        message: "Sorry. Something went wrong. Please try again later!",
-      };
+    // Look first instead of trusting create to complain about a duplicate:
+    // someone who unsubscribed and came back has to be switched on again, and
+    // someone already active must not get a second welcome.
+    const existing = await withResendRetry(() =>
+      resend.contacts.get({ email }),
+    );
+    if (existing.error && existing.error.name !== "not_found") {
+      console.error("[newsletter] signup lookup failed:", existing.error);
+      return failure;
     }
 
-    // Only a brand new contact gets here (a repeat signup returned above), so
-    // submitting the form twice can't send the welcome twice.
-    await sendWelcomeEmail(
-      formValidationResult.data.email,
-      formValidationResult.data.firstName,
-    );
+    if (existing.data) {
+      // Best effort and harmless when they're already in it: a contact made
+      // some other way (an import, the dashboard) may not be in the segment
+      // the broadcasts go to.
+      const added = await withResendRetry(() =>
+        resend.contacts.segments.add({ email, segmentId }),
+      );
+      if (added.error) {
+        console.info("[newsletter] segment add skipped:", added.error.message);
+      }
 
-    return { message: "You're on the list!" };
+      // Already active: nothing to change, and no second welcome however
+      // many times the form is submitted.
+      if (!existing.data.unsubscribed) return success;
+
+      const updated = await withResendRetry(() =>
+        resend.contacts.update({
+          email,
+          unsubscribed: false,
+          ...(firstName && !existing.data.first_name ? { firstName } : {}),
+        }),
+      );
+      if (updated.error) {
+        console.error("[newsletter] resubscribe failed:", updated.error);
+        return failure;
+      }
+    } else {
+      const created = await withResendRetry(() =>
+        resend.contacts.create({
+          email,
+          firstName,
+          segments: [{ id: segmentId }],
+        }),
+      );
+      if (created.error) {
+        // Two submits racing: the other one made the contact and sends the
+        // welcome.
+        if (/already exist/i.test(created.error.message)) return success;
+        console.error("Newsletter subscription error:", created.error);
+        return failure;
+      }
+    }
+
+    // Reached once per subscription: a brand new contact, or one coming back
+    // after unsubscribing.
+    await sendWelcomeEmail(email, firstName);
+    return success;
   } catch (error) {
     console.error("Newsletter subscription error:", error);
-    return {
-      apiError: "Failed to subscribe.",
-      message: "Sorry. Something went wrong. Please try again later!",
-    };
+    return failure;
   }
 }
 
