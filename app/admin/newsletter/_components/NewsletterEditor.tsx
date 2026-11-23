@@ -9,6 +9,7 @@ import { Newsletter } from "@prisma/client";
 import { Editor } from "@tiptap/react";
 import { toast } from "sonner";
 import {
+  ArrowRight,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
@@ -105,6 +106,12 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
       ? resumeScheduledAt
       : undefined,
   );
+  // The Send dialog makes you say which one you mean. Nothing is preselected
+  // on a fresh draft, so the action button can't fire until you've chosen.
+  const [sendMode, setSendMode] = useState<"now" | "scheduled" | null>(null);
+  // Sending now takes two clicks: the first arms the button, the second sends.
+  const [confirmingNow, setConfirmingNow] = useState(false);
+  const armedAtRef = useRef(0);
   const [isSending, setIsSending] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   // Live "Upcoming" + "Classes This Week" HTML, appended after the message.
@@ -411,6 +418,43 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
     scheduledAt.getTime() >
       Date.now() + NEWSLETTER_SCHEDULE_MAX_DAYS * 24 * 60 * 60 * 1000;
 
+  // A draft pulled back off the schedule reopens on "Schedule for later" with
+  // its old time; everything else opens with no choice made.
+  const openSendDialog = () => {
+    setSendMode(scheduledAt ? "scheduled" : null);
+    setConfirmingNow(false);
+    setIsSendOpen(true);
+  };
+
+  const chooseSendMode = (mode: "now" | "scheduled") => {
+    setSendMode(mode);
+    setConfirmingNow(false);
+  };
+
+  const audienceLabel = subscriberCount
+    ? `${subscriberCount.count}${subscriberCount.hasMore ? "+" : ""} ${
+        subscriberCount.count === 1 && !subscriberCount.hasMore
+          ? "subscriber"
+          : "subscribers"
+      }`
+    : "all subscribers";
+
+  const handleSendAction = () => {
+    if (sendMode === "scheduled") {
+      void handleSend("scheduled");
+      return;
+    }
+    if (sendMode !== "now") return;
+    if (!confirmingNow) {
+      armedAtRef.current = Date.now();
+      setConfirmingNow(true);
+      return;
+    }
+    // A double-click shouldn't count as both the ask and the answer.
+    if (Date.now() - armedAtRef.current < 600) return;
+    void handleSend("now");
+  };
+
   const handleSend = async (when: "now" | "scheduled") => {
     if (when === "scheduled") {
       if (!scheduledAt) {
@@ -529,7 +573,7 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
             This was scheduled for{" "}
             <strong>{formatDateTime(resumeScheduledAt).dateTime}</strong>.
             It&apos;s a draft again while you edit, so it won&apos;t go out
-            until you schedule it. Send… has that time filled in.
+            until you schedule it. Click Continue… and that time is filled in.
           </p>
         </div>
       )}
@@ -871,10 +915,10 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
             type="button"
             disabled={isSubmitting || isSending}
             onClick={async () => {
-              if (await trigger()) setIsSendOpen(true);
+              if (await trigger()) openSendDialog();
             }}
           >
-            <Send className="w-4 h-4" /> Send…
+            Continue… <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -906,27 +950,12 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
       <Dialog open={isSendOpen} onOpenChange={setIsSendOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Send newsletter</DialogTitle>
+            <DialogTitle>Review and send</DialogTitle>
             <DialogDescription>
-              {subscriberCount !== null ? (
-                <>
-                  Sends to{" "}
-                  <strong>
-                    {subscriberCount.count}
-                    {subscriberCount.hasMore ? "+" : ""}
-                  </strong>{" "}
-                  {subscriberCount.count === 1 && !subscriberCount.hasMore
-                    ? "subscriber"
-                    : "subscribers"}{" "}
-                  now, or pick a time.
-                </>
-              ) : countFailed ? (
-                "Couldn't fetch the subscriber count — it will still send to all subscribers."
-              ) : (
-                "Send to all subscribers now, or pick a time."
-              )}{" "}
-              Scheduled sends can be cancelled from the newsletters list until
-              they go out.
+              {countFailed
+                ? "Couldn't fetch the subscriber count. This still goes to all subscribers."
+                : `This goes to ${audienceLabel}.`}{" "}
+              Choose when.
             </DialogDescription>
           </DialogHeader>
 
@@ -961,55 +990,126 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({
             </div>
           )}
 
-          <DateTimePicker
-            label="Schedule for later (optional)"
-            value={scheduledAt}
-            onChange={setScheduledAt}
-            minDate={new Date()}
-            maxDate={
-              // Resend's broadcast scheduling window.
-              new Date(
-                Date.now() + NEWSLETTER_SCHEDULE_MAX_DAYS * 24 * 60 * 60 * 1000,
-              )
-            }
-            placeholder="Pick a date and time"
-            error={
-              scheduleTooFar
-                ? `Resend can schedule up to ${NEWSLETTER_SCHEDULE_MAX_DAYS} days ahead — pick an earlier time.`
-                : undefined
-            }
-          />
+          <fieldset className="space-y-2" disabled={isSending}>
+            <legend className="sr-only">When to send</legend>
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${
+                sendMode === "now"
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              }`}
+            >
+              <input
+                type="radio"
+                name="send-mode"
+                className="mt-1 accent-primary"
+                checked={sendMode === "now"}
+                onChange={() => chooseSendMode("now")}
+              />
+              <span>
+                <span className="block text-sm font-medium">Send now</span>
+                <span className="block text-xs text-muted-foreground">
+                  Goes out right away. It can&apos;t be canceled.
+                </span>
+              </span>
+            </label>
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${
+                sendMode === "scheduled"
+                  ? "border-primary bg-primary/5"
+                  : "border-border"
+              }`}
+            >
+              <input
+                type="radio"
+                name="send-mode"
+                className="mt-1 accent-primary"
+                checked={sendMode === "scheduled"}
+                onChange={() => chooseSendMode("scheduled")}
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  Schedule for later
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  You can cancel it from the newsletters list until it goes out.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          {sendMode === "scheduled" && (
+            <DateTimePicker
+              label="Send at"
+              value={scheduledAt}
+              onChange={setScheduledAt}
+              minDate={new Date()}
+              maxDate={
+                // Resend's broadcast scheduling window.
+                new Date(
+                  Date.now() +
+                    NEWSLETTER_SCHEDULE_MAX_DAYS * 24 * 60 * 60 * 1000,
+                )
+              }
+              placeholder="Pick a date and time"
+              error={
+                scheduleTooFar
+                  ? `Resend can schedule up to ${NEWSLETTER_SCHEDULE_MAX_DAYS} days ahead. Pick an earlier time.`
+                  : undefined
+              }
+            />
+          )}
+
+          {sendMode === "now" && confirmingNow && (
+            <p
+              role="alert"
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+            >
+              This emails {audienceLabel} immediately and can&apos;t be undone.
+              Click again to confirm.
+            </p>
+          )}
 
           <DialogFooter className="gap-2 sm:gap-0">
+            {sendMode === "now" && confirmingNow && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSending}
+                onClick={() => setConfirmingNow(false)}
+              >
+                Go back
+              </Button>
+            )}
             <Button
               type="button"
-              variant="outline"
+              variant={
+                sendMode === "now" && confirmingNow ? "destructive" : "default"
+              }
               disabled={
                 isSending ||
-                !scheduledAt ||
-                scheduleTooFar ||
-                contentIssues.blockers.length > 0
+                !sendMode ||
+                contentIssues.blockers.length > 0 ||
+                (sendMode === "scheduled" && (!scheduledAt || scheduleTooFar))
               }
-              onClick={() => handleSend("scheduled")}
+              onClick={handleSendAction}
             >
               {isSending ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
+              ) : sendMode === "scheduled" ? (
                 <CalendarClock className="w-4 h-4" />
-              )}
-              Schedule
-            </Button>
-            <Button
-              type="button"
-              disabled={isSending || contentIssues.blockers.length > 0}
-              onClick={() => handleSend("now")}
-            >
-              {isSending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
+              ) : sendMode === "now" ? (
                 <Send className="w-4 h-4" />
-              )}
-              Send now
+              ) : null}
+              {sendMode === "scheduled"
+                ? scheduledAt
+                  ? `Schedule for ${formatDateTime(scheduledAt).dateTime} ET`
+                  : "Pick a time to schedule"
+                : sendMode === "now"
+                  ? confirmingNow
+                    ? `Yes, send to ${audienceLabel} now`
+                    : `Send now to ${audienceLabel}`
+                  : "Choose when to send"}
             </Button>
           </DialogFooter>
         </DialogContent>
