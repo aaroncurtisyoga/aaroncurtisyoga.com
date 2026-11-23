@@ -69,7 +69,7 @@ Migrations: use `npx prisma migrate diff` + `npx prisma migrate deploy`, never `
 
 ### Newsletter (Resend)
 
-- Signup form adds contacts to the Resend segment (`RESEND_SEGMENT_ID`)
+- Signup form adds contacts to the Resend segment (`RESEND_SEGMENT_ID`). No confirmation email, on purpose (decided Nov 2026): `addNewsletterEntry` looks the contact up first, so an active subscriber is left alone (no second welcome) and someone who unsubscribed is switched back on. There's no rate limit or bot check on the form yet
 - Compose/schedule/send from `/admin/newsletter`. Drafts live in the `Newsletter` Prisma model, delivery via Resend Broadcast API (scheduling handled by Resend, no cron)
 - Unsubscribes handled by Resend via `{{{RESEND_UNSUBSCRIBE_URL}}}` in the email template (`app/_lib/email/newsletter-template.ts`)
 - One-time Mailchimp import: `npx tsx scripts/import-subscribers.ts <export.csv>`
