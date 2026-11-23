@@ -57,7 +57,14 @@ const statusFilters: { value: StatusFilter; label: string }[] = [
   { value: "unsubscribed", label: "Unsubscribed" },
 ];
 
-const csvCell = (value: string) => `"${String(value).replace(/"/g, '""')}"`;
+// Subscribers type these values themselves. A cell starting with = + - or @
+// runs as a formula when the export is opened in Excel or Sheets, so those
+// get a leading apostrophe, which spreadsheets show as plain text.
+const csvCell = (value: string) => {
+  const text = String(value);
+  const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return `"${safe.replace(/"/g, '""')}"`;
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

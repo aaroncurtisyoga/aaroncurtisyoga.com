@@ -80,9 +80,18 @@ const SUBJECT_MAX = 150;
 
 interface NewsletterEditorProps {
   newsletter?: Newsletter;
+  /**
+   * Set when this draft was just pulled out of the send queue to be edited:
+   * the time it had been scheduled for. Pre-fills the Send dialog so putting
+   * it back on the schedule is one click.
+   */
+  resumeScheduledAt?: Date;
 }
 
-const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
+const NewsletterEditor: FC<NewsletterEditorProps> = ({
+  newsletter,
+  resumeScheduledAt,
+}) => {
   const router = useRouter();
   const editorRef = useRef<Editor | null>(null);
   const subjectInputRef = useRef<HTMLInputElement | null>(null);
@@ -91,7 +100,11 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(false);
   const [isButtonDialogOpen, setIsButtonDialogOpen] = useState(false);
-  const [scheduledAt, setScheduledAt] = useState<Date | undefined>();
+  const [scheduledAt, setScheduledAt] = useState<Date | undefined>(() =>
+    resumeScheduledAt && resumeScheduledAt > new Date()
+      ? resumeScheduledAt
+      : undefined,
+  );
   const [isSending, setIsSending] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   // Live "Upcoming" + "Classes This Week" HTML, appended after the message.
@@ -506,6 +519,20 @@ const NewsletterEditor: FC<NewsletterEditorProps> = ({ newsletter }) => {
 
   return (
     <form onSubmit={handleSubmit(onSaveDraft)} className="space-y-6">
+      {resumeScheduledAt && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+        >
+          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            This was scheduled for{" "}
+            <strong>{formatDateTime(resumeScheduledAt).dateTime}</strong>.
+            It&apos;s a draft again while you edit, so it won&apos;t go out
+            until you schedule it. Send… has that time filled in.
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <div
           className="flex items-center gap-1.5 text-xs text-muted-foreground"
