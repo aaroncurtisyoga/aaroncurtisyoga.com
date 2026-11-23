@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { Newsletter } from "@prisma/client";
 import { toast } from "sonner";
@@ -52,6 +53,13 @@ const NewsletterDetailPage: FC = () => {
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const [rescheduleAt, setRescheduleAt] = useState<Date | undefined>();
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isUnscheduling, setIsUnscheduling] = useState(false);
+  // The send time a newsletter had before Edit pulled it back to a draft, so
+  // the editor can offer it again.
+  const [resumeScheduledAt, setResumeScheduledAt] = useState<
+    Date | undefined
+  >();
 
   const load = useCallback(async () => {
     const data = await getNewsletterById(id);
@@ -157,6 +165,32 @@ const NewsletterDetailPage: FC = () => {
     }
   };
 
+  // Resend can't change a queued broadcast, so editing means taking it out of
+  // the queue first. The row comes back as a draft and this page renders the
+  // editor, carrying the old send time along.
+  const handleConfirmEdit = async () => {
+    if (!newsletter) return;
+    setIsUnscheduling(true);
+    try {
+      const previousTime = newsletter.scheduledAt
+        ? new Date(newsletter.scheduledAt)
+        : undefined;
+      const result = await cancelScheduledNewsletter(newsletter.id);
+      if (result.status) {
+        setResumeScheduledAt(previousTime);
+      } else {
+        toast.error(result.message);
+      }
+      setIsEditOpen(false);
+      // Draft now, or SENT if it went out before the cancel landed.
+      await load();
+    } catch {
+      toast.error("Couldn't reach the server. Check your connection.");
+    } finally {
+      setIsUnscheduling(false);
+    }
+  };
+
   const handleConfirmCancel = async () => {
     if (!newsletter) return;
     setIsCancelling(true);
@@ -204,7 +238,10 @@ const NewsletterDetailPage: FC = () => {
         <h1 className="mb-6 font-display text-3xl uppercase text-foreground">
           Newsletter Draft
         </h1>
-        <NewsletterEditor newsletter={newsletter} />
+        <NewsletterEditor
+          newsletter={newsletter}
+          resumeScheduledAt={resumeScheduledAt}
+        />
       </div>
     );
   }
@@ -272,6 +309,13 @@ const NewsletterDetailPage: FC = () => {
           )}
           {newsletter.status === "SCHEDULED" && (
             <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditOpen(true)}
+              >
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -471,6 +515,36 @@ const NewsletterDetailPage: FC = () => {
           {isRescheduling && (
             <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Rescheduling…
+            </p>
+          )}
+        </div>
+      </BasicModal>
+
+      <BasicModal
+        isOpen={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        header="Edit scheduled newsletter"
+        primaryAction={handleConfirmEdit}
+        primaryActionLabel={isUnscheduling ? "Opening…" : "Edit as draft"}
+        primaryActionDisabled={isUnscheduling}
+        cancelLabel="Keep it scheduled"
+      >
+        <div>
+          <p className="mb-4">
+            Editing takes this newsletter out of the send queue and turns it
+            back into a draft. It won&apos;t go out until you schedule it again
+            from Send….
+          </p>
+          {newsletter.scheduledAt && (
+            <p className="text-sm text-muted-foreground">
+              Currently scheduled for{" "}
+              {formatDateTime(newsletter.scheduledAt).dateTime}. The editor
+              keeps that time ready for you.
+            </p>
+          )}
+          {isUnscheduling && (
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Opening the editor…
             </p>
           )}
         </div>
