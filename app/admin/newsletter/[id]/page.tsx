@@ -545,8 +545,7 @@ const NewsletterDetailPage: FC = () => {
         <div>
           <p className="mb-4">
             Editing takes this newsletter out of the send queue and turns it
-            back into a draft. It won&apos;t go out until you schedule it again
-            from Send….
+            back into a draft. It won&apos;t go out until you schedule it again.
           </p>
           {newsletter.scheduledAt && (
             <p className="text-sm text-muted-foreground">

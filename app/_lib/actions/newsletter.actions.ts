@@ -1082,7 +1082,7 @@ export async function rescheduleNewsletter(id: string, scheduledAtIso: string) {
       status: false,
       message: `The original send was cancelled and the draft is safe, but re-scheduling failed: ${
         sent.message ?? "unknown error."
-      } Open the draft and use Send… to pick a new time.`,
+      } Open the draft and click Continue… to pick a new time.`,
     };
   }
   return { status: true, message: "Rescheduled.", data: sent.data };
