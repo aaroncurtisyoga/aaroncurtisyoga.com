@@ -16,6 +16,8 @@ interface BasicModalProps {
   primaryAction?: () => void;
   primaryActionLabel?: string;
   primaryActionDisabled?: boolean;
+  /** Use "destructive" when confirming removes or cancels something. */
+  primaryActionVariant?: "default" | "destructive";
   /** Dismiss-button label; override when "Cancel" would be ambiguous. */
   cancelLabel?: string;
   placement?: "auto" | "top" | "center" | "bottom";
@@ -30,6 +32,7 @@ const BasicModal: FC<BasicModalProps> = ({
   primaryAction,
   primaryActionLabel,
   primaryActionDisabled = false,
+  primaryActionVariant = "default",
   cancelLabel = "Cancel",
   hideButtons = false,
 }) => {
@@ -51,6 +54,7 @@ const BasicModal: FC<BasicModalProps> = ({
               </Button>
               {primaryAction && (
                 <Button
+                  variant={primaryActionVariant}
                   onClick={primaryAction}
                   disabled={primaryActionDisabled}
                 >
